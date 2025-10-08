@@ -32,7 +32,7 @@ class InputParser:
             return ParseResult(data=SpecialCommand.REPEAT_SET)
 
         # Attempt to parse as metric values
-        parts = [p.strip() for p in clean_text.split(',')]
+        parts = [p.strip() for p in clean_text.split()]
         
         if len(parts) != len(expected_metrics):
             msg = f"Invalid input. Expected {len(expected_metrics)} values for ({', '.join(m.value for m in expected_metrics)}), but got {len(parts)}."

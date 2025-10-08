@@ -49,12 +49,13 @@ async def start_log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles button presses from the inline keyboard."""
     query = update.callback_query
-    await query.answer() # Acknowledge the button press
+    await query.answer()
 
     user_id = query.from_user.id
     training_name = TrainingName(query.data)
 
-    response = flow_service.start_training(user_id, training_name)
+    # This now kicks off the conversation by asking for the date
+    response = flow_service.select_training(user_id, training_name)
     await query.edit_message_text(text=response, parse_mode='Markdown')
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
