@@ -20,5 +20,8 @@ class TrainingState(BaseModel):
     
     # Used to implement the 'repeat' command
     last_logged_set: Optional[WoSet] = None
+
+    # Flag to handle rest time
+    awaiting_rest_time: bool = False
     
     start_time: datetime = Field(default_factory=datetime.now)

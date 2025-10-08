@@ -54,6 +54,20 @@ class WorkoutFlowService:
         if not state:
             return "You don't have an active training session. Use /startlog to begin."
 
+        # If we are waiting for a rest time, process that first.
+        if state.awaiting_rest_time:
+            try:
+                rest_time = int(message_text.strip())
+                # Assign rest time to the exercise just completed
+                state.training_in_progress.workouts[-1].exercises[-1].rest_time = rest_time
+                state.awaiting_rest_time = False
+                state.current_exercise_index += 1
+                state.last_logged_set = None
+                self._prepare_current_structures(state)
+                return self._get_current_question(user_id)
+            except ValueError:
+                return "Invalid input. Please enter the rest time in seconds (e.g., 90)."
+
         current_exercise_config = self._get_current_exercise_config(state)
         expected_metrics = [Metric(m) for m in current_exercise_config["metrics"]]
 
@@ -64,10 +78,18 @@ class WorkoutFlowService:
         
         # Handle parsed commands or data
         if parse_result.data == SpecialCommand.DONE_EXERCISE:
-            state.current_exercise_index += 1
-            state.last_logged_set = None # Reset for next exercise
-            self._prepare_current_structures(state)
-            return self._get_current_question(user_id)
+            # Check if we need to ask for rest time
+            current_exercise_config = self._get_current_exercise_config(state)
+            if current_exercise_config.get("track_rest", False):
+                state.awaiting_rest_time = True
+                exercise_name = current_exercise_config["name"].replace('_', ' ').title()
+                return f"✅ Exercise complete. What was your rest time between sets for *{exercise_name}* (in seconds)?"
+            else:
+                # No rest time to track, just move to the next exercise
+                state.current_exercise_index += 1
+                state.last_logged_set = None 
+                self._prepare_current_structures(state)
+                return self._get_current_question(user_id)
             
         elif parse_result.data == SpecialCommand.REPEAT_SET:
             if not state.last_logged_set:
