@@ -1,0 +1,5 @@
+pydantic
+pydantic-settings
+pymongo
+pyyaml
+python-dotenv
