@@ -59,7 +59,7 @@ class WoSet(BaseModel):
 class Exercise(BaseModel):
     """An exercise that has been performed."""
     name: ExerciseName
-    rest_time_sec: Optional[int] = None
+    rest_time: Optional[int] = None
     sets: List[WoSet]
 
 class Workout(BaseModel):
@@ -71,7 +71,7 @@ class Workout(BaseModel):
 class Training(BaseModel):
     """The top-level document for a completed training session."""
     user_id: int
-    session_date: date
+    date: date
     name: TrainingName
-    duration_minutes: int
+    duration: int
     workouts: List[Workout]
