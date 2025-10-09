@@ -1,66 +1,52 @@
+"""Main entry point for the Telegram Workout Bot."""
+
 import logging
 
-from src.config import settings
-from src.models.domain import TrainingName
-from src.services.flow_service import WorkoutFlowService
-from src.services.input_parser import InputParser
-from src.services.mongo_service import MongoService
-from src.services.program_loader import ProgramLoader
+from telegram.ext import Application
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from bot.handlers import get_conversation_handler
+from config import settings
+from services.mongo_service import MongoService
+from services.training_config_service import TrainingConfigService
+
+# Set up basic logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+# Set higher logging level for httpx to avoid noisy GET and POST requests
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
-def run_demo():
-    """Demonstrates the full interactive workout flow."""
-    logger.info("--- Starting Interactive Workout Flow Demo ---")
 
-    # 1. Setup all services (Dependency Injection)
-    program_loader = ProgramLoader()
-    mongo_service = MongoService(settings)
-    input_parser = InputParser()
-    flow_service = WorkoutFlowService(program_loader, mongo_service, input_parser)
+def main() -> None:
+    """Starts the bot."""
+    logger.info("Initializing services...")
 
-    # 2. Simulate a full user conversation
-    user_id = 67890
-    
-    # Helper function to simulate a turn
-    def user_turn(message: str):
-        print(f"\n> USER: {message}")
-        response = flow_service.handle_user_response(user_id, message)
-        print(f"< BOT: {response}")
+    # 1. Initialize services
+    # Architectural decision: Services are instantiated here at the top level
+    # and passed down to the handlers that need them (Dependency Injection).
+    # This decouples the handlers from the service creation process.
+    config_service = TrainingConfigService(config_path="training_config.yaml")
+    mongo_service = MongoService(settings=settings)
 
-    # Start the training
-    print(f"< BOT: Starting training for user {user_id}...")
-    start_message = flow_service.start_training(user_id, TrainingName.LOWER_MOVGH)
-    print(f"< BOT: {start_message}")
+    if not mongo_service.client:
+        logger.error("Failed to connect to MongoDB. Bot cannot start.")
+        return
 
-    # Log sets for the first exercise
-    user_turn("10, 15")    # reps, weight for cossack_squat
-    user_turn("10, 15.5")
-    user_turn("r")         # repeat the last set
-    user_turn("done")      # finish cossack_squat
+    logger.info("Setting up Telegram bot...")
+    # 2. Create the Telegram Application
+    application = Application.builder().token(settings.telegram_bot_token).build()
 
-    # Log sets for the second exercise
-    user_turn("12, 5")     # reps, knee2floor for shrimp
-    user_turn("done")
+    # 3. Get and add the conversation handler
+    conv_handler = get_conversation_handler(config_service, mongo_service)
+    application.add_handler(conv_handler)
 
-    # Log sets for the third exercise
-    user_turn("8, 50")     # reps, weight for stride_stance_deadlift
-    user_turn("done")
+    logger.info("Bot is starting to poll...")
+    # 4. Run the bot until the user presses Ctrl-C
+    application.run_polling()
 
-    # Log sets for the fourth exercise (next workout)
-    user_turn("60, 20")    # time, feet2floor for bridge
-    user_turn("done")
-
-    # Log sets for the final exercise
-    user_turn("45")        # time for chest2wall
-    user_turn("done")
-
-    # Check that the session is closed
-    if user_id not in flow_service.active_sessions:
-        print("\n✅ Session closed and saved successfully.")
-
-    logger.info("--- Demo Finished ---")
 
 if __name__ == "__main__":
-    run_demo()
+    main()
