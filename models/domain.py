@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from models.enums import ExerciseName, Metric, TrainingName, WorkoutName
+from models.enums import ExerciseName, Metric, WorkoutName
 
 
 class WoSet(BaseModel):
@@ -31,6 +31,5 @@ class Training(BaseModel):
     """The top-level document for a completed training session."""
     user_id: int
     date: date
-    name: TrainingName
     duration_minutes: int = Field(alias="duration")
     workouts: List[Workout] = []

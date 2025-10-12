@@ -1,65 +1,64 @@
-trainings:
-  upper_frontsplit:
-    - name: upper
-      exercises:
-        - name: pullup
-          track_rest: true
-          metrics:
-            - reps
-        - name: dip
-          track_rest: true
-          metrics:
-            - reps
-        - name: pike_pushup
-          metrics:
-            - reps
-    - name: frontsplit
-      exercises:
-        - name: wide_split_squat
-          metrics:
-            - reps
-            - thigh2floor
+workouts:
+  upper:
+    exercises:
+      - name: pullup
+        track_rest: true
+        metrics:
+          - reps
+      - name: dip
+        track_rest: true
+        metrics:
+          - reps
+      - name: pike_pushup
+        metrics:
+          - reps
 
-  lower_movgh:
-    - name: lower
-      exercises:
-        - name: cossack_squat
-          metrics:
-            - reps
-            - weight
-        - name: shrimp
-          metrics:
-            - reps
-            - knee2floor
-        - name: stride_stance_deadlift
-          metrics:
-            - reps
-            - weight
-    - name: movgh
-      exercises:
-        - name: bridge
-          metrics:
-            - time
-            - feet2floor
-        - name: chest2wall
-          metrics:
-            - time
+  frontsplit:
+    exercises:
+      - name: wide_split_squat
+        metrics:
+          - reps
+          - thigh2floor
+
+  lower:
+    exercises:
+      - name: cossack_squat
+        metrics:
+          - reps
+          - weight
+      - name: shrimp
+        metrics:
+          - reps
+          - knee2floor
+      - name: stride_stance_deadlift
+        metrics:
+          - reps
+          - weight
+
+  movgh:
+    exercises:
+      - name: bridge
+        metrics:
+          - time
+          - feet2floor
+      - name: chest2wall
+        metrics:
+          - time
 
   home:
-    - name: home
-      exercises:
-        - name: rice_bucket
-          metrics:
-            - time
-        - name: squat2sissy
-          metrics:
-            - reps
-            - feet2floor
-        - name: heel_elevation
-          metrics:
-            - reps
-            - weight
-        - name: towel_roll
-          metrics:
-            - reps
-            - weight
+    exercises:
+      - name: rice_bucket
+        metrics:
+          - time
+      - name: squat2sissy
+        metrics:
+          - reps
+          - feet2floor
+      - name: heel_elevation
+        metrics:
+          - reps
+          - weight
+      - name: towel_roll
+        metrics:
+          - reps
+          - weight

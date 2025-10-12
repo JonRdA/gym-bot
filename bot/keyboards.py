@@ -4,15 +4,17 @@ from typing import List
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from models.enums import TrainingName
+from models.enums import WorkoutName
 
 
-def create_training_selection_keyboard(training_names: List[TrainingName]) -> InlineKeyboardMarkup:
-    """Creates a keyboard for the user to select a training program."""
+def create_workout_selection_keyboard(workout_names: List[WorkoutName]) -> InlineKeyboardMarkup:
+    """Creates a keyboard for selecting workouts to add, plus a finish button."""
     keyboard = [
-        [InlineKeyboardButton(name.value.replace("_", " ").title(), callback_data=name.value)]
-        for name in training_names
+        [InlineKeyboardButton(name.value.replace("_", " ").title(), callback_data=f"addworkout_{name.value}")]
+        for name in workout_names
     ]
+    # Add the finish button at the end
+    keyboard.append([InlineKeyboardButton("✅ Finish Training", callback_data="finish_training")])
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -25,3 +27,4 @@ def create_yes_no_keyboard(yes_callback: str, no_callback: str) -> InlineKeyboar
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
+

@@ -43,7 +43,7 @@ class MongoService:
         Returns:
             True if insertion was successful, False otherwise.
         """
-        if not self.trainings_collection:
+        if self.trainings_collection is None:
             logger.error("Cannot save training, no database connection.")
             return False
 
@@ -53,6 +53,7 @@ class MongoService:
             training_dict = training.model_dump(mode='json')
             result = self.trainings_collection.insert_one(training_dict)
             logger.info("Successfully saved training with id: %s", result.inserted_id)
+            logger.info(training_dict)
             return True
         except OperationFailure as e:
             logger.error("Failed to save training to MongoDB: %s", e)

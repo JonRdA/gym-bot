@@ -28,14 +28,6 @@ class Metric(str, Enum):
         return obj
 
 
-class TrainingName(str, Enum):
-    """Enum for the names of top-level training sessions."""
-    UPPER_FRONTSPLIT = "upper_frontsplit"
-    LOWER_MOVGH = "lower_movgh"
-    HOME = "home"
-    MISC = "misc"
-
-
 class WorkoutName(str, Enum):
     """Enum for the names of individual workouts within a training session."""
     UPPER = "upper"
@@ -72,3 +64,4 @@ class ExerciseName(str, Enum):
     HEEL_ELEVATION = "heel_elevation"
     SQUAT2SISSY = "squat2sissy"
     TOWEL_ROLL = "towel_roll"
+
