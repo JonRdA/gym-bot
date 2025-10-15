@@ -2,7 +2,7 @@
 Contains the ConversationHandler and all related logic for the bot.
 Architectural decision:
 A ConversationHandler is used to guide the user through the multi-step
-process of logging a workout. This version uses a flexible approach
+process of logger a workout. This version uses a flexible approach
 where users compose a training session by adding workouts one by one.
 """
 
@@ -57,7 +57,7 @@ async def _ask_to_select_workout(update: Update, context: CallbackContext, confi
     
     # Use a different message if workouts have already been added
     if context.user_data['training_obj'].workouts:
-        message = "Add another workout, or finish logging."
+        message = "Add another workout, or finish logger."
     else:
         message = "Let's add the first workout to your training session."
 
@@ -109,7 +109,7 @@ async def _ask_for_sets(update: Update, context: CallbackContext):
 
 # --- Command Handlers (Entry & Exit) ---
 
-async def start_logging_command(update: Update, context: CallbackContext):
+async def start_logger_command(update: Update, context: CallbackContext):
     """Starts the conversation to log a new training session."""
     _cleanup_user_data(context)
     user_id = update.effective_user.id
@@ -141,7 +141,7 @@ async def received_date(update: Update, context: CallbackContext):
     text = update.message.text
     try:
         if text.lower() == 'today':
-            training_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            training_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             training_date = datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         
@@ -311,7 +311,7 @@ def get_conversation_handler(config_service: TrainingConfigService, mongo_servic
     done_exercise_handler = lambda u, c: handle_next_exercise(u, c, config_service=config_service)
 
     return ConversationHandler(
-        entry_points=[CommandHandler("newtraining", start_logging_command)],
+        entry_points=[CommandHandler("newtraining", start_logger_command)],
         states={
             AWAITING_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_date)],
             AWAITING_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_duration_handler)],

@@ -1,6 +1,0 @@
-pydantic
-pydantic-settings
-pymongo
-pyyaml
-python-dotenv
-python-telegram-bot
