@@ -15,15 +15,13 @@ def create_workout_selection_keyboard(workout_names: List[WorkoutName]) -> Inlin
     """Creates a keyboard with workout names in rows of 3 and a finish button."""
     # Create buttons for each workout
     buttons = [
-        InlineKeyboardButton(name.value.replace("_", " ").title(), callback_data=f"addworkout_{name.value}")
+        InlineKeyboardButton(name.value.replace("_", " ").lower(), callback_data=f"addworkout_{name.value}")
         for name in workout_names
     ]
 
-    # Group into rows of 3
+    # Group into rows of 3 & add finish button
     keyboard = chunk_list(buttons, 3)
-
-    # Add finish button
-    keyboard.append([[InlineKeyboardButton("✅ Finish Training", callback_data="finish_training")]])
+    keyboard.append([InlineKeyboardButton("✅ Finish Training", callback_data="finish_training")])
 
     return InlineKeyboardMarkup(keyboard)
     
@@ -36,4 +34,3 @@ def create_completion_keyboard() -> InlineKeyboardMarkup:
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
-

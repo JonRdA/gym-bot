@@ -11,11 +11,11 @@ from services.training_config_service import TrainingConfigService
 
 # Set up basic logging
 logging.basicConfig(
-    level=logger.info,
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 # Set higher logging level for httpx to avoid noisy GET and POST requests
-logging.getLogger("httpx").setLevel(logger.warnING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 

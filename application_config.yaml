@@ -1,0 +1,7 @@
+mongo:
+  db_name: "workout_tracker"
+  trainings_collection: "trainings"
+  config_collection: "user_configurations"
+
+backup:
+  directory: "trainings_backup"

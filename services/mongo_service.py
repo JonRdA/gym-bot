@@ -28,7 +28,7 @@ class MongoService:
         try:
             collection = self.db[settings.mongo_trainings_collection]
             # Pydantic's model_dump is used to get a dict suitable for MongoDB
-            training_dict = training_data.model_dump(by_alias=True)
+            training_dict = training_data.model_dump(by_alias=True, exclude_none=True)
             result = collection.insert_one(training_dict)
             logging.info("Successfully saved training with id: %s", result.inserted_id)
             return True

@@ -1,10 +1,3 @@
-"""
-Contains the ConversationHandler and all related logic for the bot.
-A ConversationHandler is used to guide the user through the multi-step
-process of logger a workout. This version uses a flexible approach
-where users compose a training session by adding workouts one by one.
-"""
-
 import logging
 from datetime import datetime, timezone
 from typing import List
@@ -20,7 +13,8 @@ from telegram.ext import (
     filters,
 )
 
-from bot.keyboards import create_workout_selection_keyboard
+from bot import messages
+from bot.keyboards import create_completion_keyboard, create_workout_selection_keyboard
 from models.domain import Exercise, Training, Workout, WoSet
 from models.enums import ExerciseName, Metric, WorkoutName
 from services.mongo_service import MongoService
@@ -33,8 +27,9 @@ logger = logging.getLogger(__name__)
     AWAITING_DATE,
     AWAITING_DURATION,
     SELECTING_WORKOUT,
+    AWAITING_WORKOUT_COMPLETION,
     PROCESSING_EXERCISES,
-) = range(4)
+) = range(5)
 
 
 # --- Helper Functions ---
@@ -49,18 +44,18 @@ def _cleanup_user_data(context: CallbackContext):
             del context.user_data[key]
     logger.debug("Cleaned up user_data for chat_id: %s", context._chat_id)
 
+
 async def _ask_to_select_workout(update: Update, context: CallbackContext, config_service: TrainingConfigService):
     """Asks the user to add a workout to the training or finish."""
     workout_names = config_service.get_workout_names()
     keyboard = create_workout_selection_keyboard(workout_names)
     
-    # Use a different message if workouts have already been added
-    if context.user_data['training_obj'].workouts:
-        message = "Add another workout, or finish logger."
-    else:
-        message = "Let's add the first workout to your training session."
+    message = (
+        messages.PROMPT_WORKOUT_SELECTION_NEXT
+        if context.user_data['training_obj'].workouts
+        else messages.PROMPT_WORKOUT_SELECTION_FIRST
+    )
 
-    # Use edit_message_text if coming from a callback, otherwise send new message
     if update.callback_query:
         await update.callback_query.edit_message_text(message, reply_markup=keyboard)
     else:
@@ -77,9 +72,9 @@ async def _ask_about_current_exercise(update: Update, context: CallbackContext):
 
     context.user_data['current_exercise_obj'] = Exercise(name=exercise_name)
 
-    # Use effective_message to handle both new messages and callback queries
     if exercise_config.get('track_rest'):
-        await update.effective_message.reply_text(f"What was your rest time in seconds for {exercise_name.value.title()}?")
+        prompt = messages.PROMPT_REST_TIME.format(exercise_name=exercise_name.value.replace("_", " ").title())
+        await update.effective_message.reply_text(prompt)
     else:
         await _ask_for_sets(update, context)
     return PROCESSING_EXERCISES
@@ -92,17 +87,10 @@ async def _ask_for_sets(update: Update, context: CallbackContext):
     exercise_name = ExerciseName(exercise_config['name'])
     metrics = [Metric[m.upper()] for m in exercise_config['metrics']]
     
-    # FIX: Escape special characters for MarkdownV2
     exercise_title = exercise_name.value.replace("_", " ").title()
-    # Escape parentheses in the units
-    metric_names = " ".join([f"<{m.value}\\({m.unit.value}\\)>" for m in metrics])
+    metric_names = " ".join([f"<{m.value}\\({m.unit.value}\\)>" if m.unit else f"<{m.value}>" for m in metrics])
     
-    prompt = (
-        f"Enter sets for *{exercise_title}*\\.\n"
-        f"Format: `{metric_names}`\n"
-        "Use /repeat for the same set, and /done when finished\\."
-    )
-    # Use effective_message to handle both new messages and callback queries
+    prompt = messages.PROMPT_SETS.format(exercise_title=exercise_title, metric_names=metric_names)
     await update.effective_message.reply_text(prompt, parse_mode='MarkdownV2')
 
 
@@ -118,10 +106,7 @@ async def start_logger_command(update: Update, context: CallbackContext):
         user_id=user_id, date=datetime.now().date(), duration=0
     )
     
-    await update.message.reply_text(
-        "Let's log a new training session!\n"
-        "What was the date of the training? (YYYY-MM-DD or 'today')"
-    )
+    await update.message.reply_text(f"{messages.START_MESSAGE}\n{messages.PROMPT_DATE}")
     return AWAITING_DATE
 
 
@@ -129,7 +114,7 @@ async def cancel_command(update: Update, context: CallbackContext):
     """Cancels and exits the current conversation."""
     logger.info("User %s cancelled the conversation.", update.effective_user.id)
     _cleanup_user_data(context)
-    await update.message.reply_text("Logging cancelled. Talk to you later!")
+    await update.message.reply_text(messages.CANCEL_MESSAGE)
     return ConversationHandler.END
 
 
@@ -140,57 +125,61 @@ async def received_date(update: Update, context: CallbackContext):
     text = update.message.text
     try:
         if text.lower() == 'today':
-            training_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            # Get today's date and combine with midnight time in UTC
+            training_date_obj = datetime.now(timezone.utc).date()
+            training_datetime = datetime.combine(training_date_obj, datetime.min.time(), tzinfo=timezone.utc)
         else:
-            training_date = datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            # Parse date string and combine with midnight time, making it UTC
+            training_date_obj = datetime.strptime(text, "%Y-%m-%d").date()
+            training_datetime = datetime.combine(training_date_obj, datetime.min.time(), tzinfo=timezone.utc)
         
-        context.user_data['training_obj'].date = training_date
-        logger.debug("User %s set date to %s", update.effective_user.id, training_date)
-        await update.message.reply_text("Got it. How long was the training in minutes?")
+        context.user_data['training_obj'].date = training_datetime
+        logger.debug("User %s set date to %s", update.effective_user.id, training_datetime)
+        await update.message.reply_text(messages.PROMPT_DURATION)
         return AWAITING_DURATION
     except ValueError:
         logger.warning("User %s entered an invalid date format: %s", update.effective_user.id, text)
-        await update.message.reply_text("That doesn't look like a valid date. Please use YYYY-MM-DD or write 'today'.")
+        await update.message.reply_text(messages.ERROR_INVALID_DATE)
         return AWAITING_DATE
+
 
 async def received_duration(update: Update, context: CallbackContext, config_service: TrainingConfigService):
     """Handles receiving the duration and moves to workout selection."""
     try:
         duration = int(update.message.text)
-        if duration <= 0:
-            raise ValueError("Duration must be positive")
-
+        if duration <= 0: raise ValueError
         context.user_data['training_obj'].duration_minutes = duration
         logger.debug("User %s set duration to %d minutes", update.effective_user.id, duration)
         return await _ask_to_select_workout(update, context, config_service)
-    except (ValueError, TypeError, ValidationError) as e:
-        logger.warning("User %s entered an invalid duration, or an error occurred: %s", update.effective_user.id, e)
-        await update.message.reply_text("Please enter a valid number for the duration in minutes.")
+    except (ValueError, TypeError):
+        logger.warning("User %s entered an invalid duration.", update.effective_user.id)
+        await update.message.reply_text(messages.ERROR_INVALID_DURATION)
         return AWAITING_DURATION
 
 # --- SELECTING_WORKOUT State ---
 
 async def selected_workout_to_add(update: Update, context: CallbackContext, config_service: TrainingConfigService):
-    """Handles a user selecting a workout to log."""
+    """Handles a user selecting a workout and asks if it was completed."""
     query = update.callback_query
     await query.answer()
     
     workout_name_str = query.data.split('_')[1] # from "addworkout_upper"
     workout_name = WorkoutName(workout_name_str)
     
-    logger.info("User %s is adding workout '%s'", query.from_user.id, workout_name_str)
+    logger.info("User %s selected workout '%s'", query.from_user.id, workout_name_str)
     
     workout_config = config_service.get_workout_details(workout_name)
     if not workout_config or not workout_config.get('exercises'):
-        await query.edit_message_text(f"Workout '{workout_name_str}' has no exercises configured. Please select another.")
+        await query.edit_message_text(messages.ERROR_NO_EXERCISES_CONFIGURED.format(workout_name=workout_name_str))
         return SELECTING_WORKOUT
 
     context.user_data['current_workout_config'] = workout_config
-    context.user_data['current_workout_obj'] = Workout(name=workout_name, completed=True)
-    context.user_data['current_exercise_idx'] = 0
+    context.user_data['current_workout_obj'] = Workout(name=workout_name) # completed is False by default
 
-    await query.edit_message_text(f"Let's log the exercises for {workout_name.value.title()}.")
-    return await _ask_about_current_exercise(update, context)
+    keyboard = create_completion_keyboard()
+    await query.edit_message_text(messages.PROMPT_WORKOUT_COMPLETION, reply_markup=keyboard)
+    return AWAITING_WORKOUT_COMPLETION
+
 
 async def finish_training_command(update: Update, context: CallbackContext, mongo_service: MongoService):
     """Handles the user finishing the training log."""
@@ -198,26 +187,40 @@ async def finish_training_command(update: Update, context: CallbackContext, mong
     await query.answer()
     
     if not context.user_data['training_obj'].workouts:
-        await query.edit_message_text("You haven't added any workouts yet. Please add at least one or /cancel.")
+        await query.edit_message_text(messages.ERROR_NO_WORKOUTS_ADDED)
         return SELECTING_WORKOUT
         
     await query.edit_message_text("Saving your training session...")
     
     training = context.user_data.get('training_obj')
     if mongo_service.save_training(training):
-        await query.edit_message_text("Great job! 💪 Training session saved successfully.")
+        await query.edit_message_text(messages.SAVE_SUCCESS)
     else:
-        await query.edit_message_text("Oh no! There was an error saving your training session.")
+        await query.edit_message_text(messages.SAVE_ERROR)
 
     _cleanup_user_data(context)
     return ConversationHandler.END
 
+# --- AWAITING_WORKOUT_COMPLETION State ---
+
+async def received_workout_completion(update: Update, context: CallbackContext):
+    """Handles the 'Yes'/'No' response for workout completion."""
+    query = update.callback_query
+    await query.answer()
+    
+    completed = query.data == "completed_yes"
+    context.user_data['current_workout_obj'].completed = completed
+    context.user_data['current_exercise_idx'] = 0
+    
+    workout_name = context.user_data['current_workout_obj'].name.value.title()
+    await query.edit_message_text(messages.LOGGING_EXERCISES_FOR.format(workout_name=workout_name))
+    
+    return await _ask_about_current_exercise(update, context)
 
 # --- PROCESSING_EXERCISES State ---
 
 async def handle_next_exercise(update: Update, context: CallbackContext, config_service: TrainingConfigService):
     """Logic to move to the next exercise or back to workout selection."""
-    # Append the completed exercise to the current workout
     if context.user_data['current_exercise_obj'].sets:
         context.user_data['current_workout_obj'].exercises.append(context.user_data['current_exercise_obj'])
     else:
@@ -236,11 +239,11 @@ async def handle_next_exercise(update: Update, context: CallbackContext, config_
     else:
         logger.info("Finished all exercises for workout '%s'", context.user_data['current_workout_obj'].name.value)
         context.user_data['training_obj'].workouts.append(context.user_data['current_workout_obj'])
-        # Cleanup for the completed workout
         del context.user_data['current_workout_obj']
         del context.user_data['current_workout_config']
         
         return await _ask_to_select_workout(update, context, config_service)
+
 
 async def received_set(update: Update, context: CallbackContext):
     """Handles a message containing set data."""
@@ -251,7 +254,7 @@ async def received_set(update: Update, context: CallbackContext):
     metrics: List[Metric] = [Metric[m.upper()] for m in exercise_config['metrics']]
 
     if len(values) != len(metrics):
-        await update.message.reply_text(f"Invalid input. Please provide {len(metrics)} values.")
+        await update.message.reply_text(messages.ERROR_INVALID_SET_INPUT.format(count=len(metrics)))
         return PROCESSING_EXERCISES
     
     try:
@@ -261,13 +264,14 @@ async def received_set(update: Update, context: CallbackContext):
         context.user_data['last_set'] = new_set
         
         logger.debug("Added set for user %s: %s", update.effective_user.id, new_set.model_dump_json())
-        await update.message.reply_text(f"Set {len(context.user_data['current_exercise_obj'].sets)} logged. Next set, /repeat or /done.")
+        count = len(context.user_data['current_exercise_obj'].sets)
+        await update.message.reply_text(messages.ADDED_SET.format(count=count))
     except (ValueError, ValidationError) as e:
         logger.error("Error parsing set data '%s': %s", update.message.text, e)
-        await update.message.reply_text("There was an error processing those values. Please check and try again.")
+        await update.message.reply_text(messages.ERROR_PROCESSING_SET)
     return PROCESSING_EXERCISES
 
-# Other handlers for PROCESSING_EXERCISES (rest time, repeat) are similar to before
+
 async def received_rest_time(update: Update, context: CallbackContext):
     """Handles receiving the rest time for an exercise."""
     try:
@@ -279,16 +283,18 @@ async def received_rest_time(update: Update, context: CallbackContext):
         await update.message.reply_text("Please enter a valid number for rest time in seconds.")
     return PROCESSING_EXERCISES
 
+
 async def repeat_set_command(update: Update, context: CallbackContext):
     """Handles the /repeat command to log the last set again."""
     if 'last_set' not in context.user_data:
-        await update.message.reply_text("There's no previous set to repeat.")
+        await update.message.reply_text(messages.NO_SET_TO_REPEAT)
     else:
         context.user_data['current_exercise_obj'].sets.append(context.user_data['last_set'])
-        await update.message.reply_text(f"Set {len(context.user_data['current_exercise_obj'].sets)} (repeated) logged.")
+        count = len(context.user_data['current_exercise_obj'].sets)
+        await update.message.reply_text(messages.REPEATED_SET.format(count=count))
     return PROCESSING_EXERCISES
 
-# The router is simpler now as it's only for the PROCESSING_EXERCISES state
+
 async def rest_time_or_set_router(update: Update, context: CallbackContext):
     """Routes message to either rest time or set handler."""
     exercise_obj = context.user_data.get('current_exercise_obj')
@@ -318,6 +324,9 @@ def get_conversation_handler(config_service: TrainingConfigService, mongo_servic
                 CallbackQueryHandler(selected_workout_handler, pattern="^addworkout_"),
                 CallbackQueryHandler(finish_training_handler, pattern="^finish_training$"),
             ],
+            AWAITING_WORKOUT_COMPLETION: [
+                CallbackQueryHandler(received_workout_completion, pattern="^completed_"),
+            ],
             PROCESSING_EXERCISES: [
                 CommandHandler("done", done_exercise_handler),
                 CommandHandler("repeat", repeat_set_command),
@@ -325,8 +334,6 @@ def get_conversation_handler(config_service: TrainingConfigService, mongo_servic
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_command)],
-        # Allow re-entry into the conversation if it's accidentally dropped
         per_user=True,
         per_chat=True,
     )
-

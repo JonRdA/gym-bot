@@ -1,6 +1,6 @@
 """Pydantic models representing the core data structures of a workout."""
 
-from datetime import date
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -23,13 +23,13 @@ class Exercise(BaseModel):
 class Workout(BaseModel):
     """A workout session that has been performed."""
     name: WorkoutName
-    completed: bool = True
+    completed: bool
     exercises: List[Exercise] = []
 
 
 class Training(BaseModel):
     """The top-level document for a completed training session."""
     user_id: int
-    date: date
+    date: datetime
     duration_minutes: int = Field(alias="duration")
     workouts: List[Workout] = []

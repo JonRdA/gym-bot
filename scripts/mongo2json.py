@@ -28,7 +28,6 @@ load_dotenv()
 # --- Configuration ---
 # Details for your Raspberry Pi running MongoDB
 MONGO_URI = os.getenv("MONGO_URI")
-MONGO_PORT = int(os.getenv("MONGO_PORT"))
 
 # MongoDB connection details
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")
