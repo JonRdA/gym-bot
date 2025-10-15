@@ -13,6 +13,7 @@ Usage:
 3. Use a diff tool to compare backups:
    diff trainings_backup_2025-10-12.json trainings_backup_2025-10-13.json
 """
+import argparse
 import json
 import os
 import sys
@@ -26,11 +27,11 @@ load_dotenv()
 
 # --- Configuration ---
 # Details for your Raspberry Pi running MongoDB
-RASPBERRY_PI_IP = os.getenv("RASPBERRY_PI_IP", "localhost")
-MONGO_PORT = int(os.getenv("MONGO_PORT", 27017))
+MONGO_URI = os.getenv("MONGO_URI")
+MONGO_PORT = int(os.getenv("MONGO_PORT"))
 
 # MongoDB connection details
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "workout_tracker")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")
 MONGO_COLLECTION = "trainings"
 
 
@@ -41,13 +42,12 @@ def json_serializer(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
-def fetch_trainings():
+def fetch_trainings(output_file=None):
     """Establishes a direct connection and fetches all training documents."""
-    mongo_uri = f"mongodb://{RASPBERRY_PI_IP}:{MONGO_PORT}/"
-    sys.stderr.write(f"Connecting to MongoDB at {mongo_uri}...\n")
+    sys.stderr.write(f"Connecting to MongoDB at {MONGO_URI}...\n")
     
     try:
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
         # The ismaster command is cheap and does not require auth.
         client.admin.command('ismaster')
         
@@ -61,14 +61,23 @@ def fetch_trainings():
         
         # Pretty-print the JSON to make diffs more readable
         json_output = json.dumps(documents, default=json_serializer, indent=2)
-        
-        # Print the final JSON to stdout
-        print(json_output)
-        sys.stderr.write("\nExport complete.\n")
+
+        if output_file:
+            try:
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(json_output)
+                sys.stderr.write(f"\nSuccessfully saved backup to {output_file}\n")
+            except IOError as e:
+                sys.stderr.write(f"\nError: Could not write to file {output_file}.\nDetails: {e}\n")
+                sys.exit(1)
+        else:
+            # Print the final JSON to stdout
+            print(json_output)
+            sys.stderr.write("\nExport complete.\n")
 
     except ConnectionFailure as e:
         sys.stderr.write(f"Error: Could not connect to MongoDB.\n")
-        sys.stderr.write(f"Please ensure MongoDB is running on '{RASPBERRY_PI_IP}' and the port {MONGO_PORT} is accessible.\n")
+        sys.stderr.write(f"Please ensure MongoDB is running on '{MONGO_URI}' and port is accessible.\n")
         sys.stderr.write(f"Details: {e}\n")
         sys.exit(1)
     finally:
@@ -76,5 +85,16 @@ def fetch_trainings():
             client.close()
 
 if __name__ == "__main__":
-    fetch_trainings()
+    parser = argparse.ArgumentParser(
+        description="Fetch training data from MongoDB and save as JSON."
+    )
+    parser.add_argument(
+        "-o", "--output",
+        dest="output_file",
+        help="Path to the output file. If not provided, prints to standard output.",
+        type=str
+    )
+    args = parser.parse_args()
+    
+    fetch_trainings(output_file=args.output_file)
 
