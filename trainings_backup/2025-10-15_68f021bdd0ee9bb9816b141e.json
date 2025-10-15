@@ -32,6 +32,12 @@
                 "reps": 10,
                 "weight": 10
               }
+            },
+            {
+              "metrics": {
+                "reps": 10,
+                "weight": 10
+              }
             }
           ]
         },
