@@ -1,28 +1,19 @@
-"""
-Pydantic-based configuration management for the application.
-Architectural decision:
-Using Pydantic's BaseSettings allows us to define our configuration
-as a typed Python class. It automatically loads variables from environment
-variables or a .env file, providing validation and type hints for our settings.
-This is cleaner and more robust than manually accessing os.environ.
-"""
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Defines application settings."""
-    
-    # To load from a .env file
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    """Manages application settings and environment variables."""
 
-    # Telegram Bot Token from BotFather
+    # Load variables from a .env file
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
     telegram_bot_token: str
-
-    # MongoDB connection details
-    mongo_uri: str = "mongodb://localhost:27017/"
+    mongo_uri: str
     mongo_db_name: str = "workout_tracker"
+    mongo_trainings_collection: str = "trainings"
+    mongo_config_collection: str = "user_configurations"
 
 
-# Create a single, importable instance of the settings
+# Instantiate the settings object to be used throughout the application
 settings = Settings()
+
