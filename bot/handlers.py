@@ -1,6 +1,5 @@
 """
 Contains the ConversationHandler and all related logic for the bot.
-Architectural decision:
 A ConversationHandler is used to guide the user through the multi-step
 process of logger a workout. This version uses a flexible approach
 where users compose a training session by adding workouts one by one.
@@ -262,7 +261,7 @@ async def received_set(update: Update, context: CallbackContext):
         context.user_data['last_set'] = new_set
         
         logger.debug("Added set for user %s: %s", update.effective_user.id, new_set.model_dump_json())
-        await update.message.reply_text(f"Set {len(context.user_data['current_exercise_obj'].sets)} logged. Enter next set or /done.")
+        await update.message.reply_text(f"Set {len(context.user_data['current_exercise_obj'].sets)} logged. Next set, /repeat or /done.")
     except (ValueError, ValidationError) as e:
         logger.error("Error parsing set data '%s': %s", update.message.text, e)
         await update.message.reply_text("There was an error processing those values. Please check and try again.")
@@ -311,7 +310,7 @@ def get_conversation_handler(config_service: TrainingConfigService, mongo_servic
     done_exercise_handler = lambda u, c: handle_next_exercise(u, c, config_service=config_service)
 
     return ConversationHandler(
-        entry_points=[CommandHandler("newtraining", start_logger_command)],
+        entry_points=[CommandHandler("add_training", start_logger_command)],
         states={
             AWAITING_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_date)],
             AWAITING_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_duration_handler)],

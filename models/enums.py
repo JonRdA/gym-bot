@@ -8,7 +8,7 @@ class Unit(str, Enum):
     S = "s"
     CM = "cm"
     KG = "kg"
-    REPS = "reps"
+    REPS = ""
 
 
 class Metric(str, Enum):

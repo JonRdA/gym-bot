@@ -7,23 +7,32 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from models.enums import WorkoutName
 
 
+def chunk_list(items: List, chunk_size: int) -> List[List]:
+    """Splits a list into sublists of fixed size."""
+    return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
+
 def create_workout_selection_keyboard(workout_names: List[WorkoutName]) -> InlineKeyboardMarkup:
-    """Creates a keyboard for selecting workouts to add, plus a finish button."""
-    keyboard = [
-        [InlineKeyboardButton(name.value.replace("_", " ").title(), callback_data=f"addworkout_{name.value}")]
+    """Creates a keyboard with workout names in rows of 3 and a finish button."""
+    # Create buttons for each workout
+    buttons = [
+        InlineKeyboardButton(name.value.replace("_", " ").title(), callback_data=f"addworkout_{name.value}")
         for name in workout_names
     ]
-    # Add the finish button at the end
-    keyboard.append([InlineKeyboardButton("✅ Finish Training", callback_data="finish_training")])
+
+    # Group into rows of 3
+    keyboard = chunk_list(buttons, 3)
+
+    # Add finish button
+    keyboard.append([[InlineKeyboardButton("✅ Finish Training", callback_data="finish_training")]])
+
     return InlineKeyboardMarkup(keyboard)
-
-
-def create_yes_no_keyboard(yes_callback: str, no_callback: str) -> InlineKeyboardMarkup:
-    """Creates a simple Yes/No keyboard."""
+    
+def create_completion_keyboard() -> InlineKeyboardMarkup:
+    """Creates a 'Yes'/'No' inline keyboard."""
     keyboard = [
         [
-            InlineKeyboardButton("✅ Yes", callback_data=yes_callback),
-            InlineKeyboardButton("❌ No", callback_data=no_callback),
+            InlineKeyboardButton("✅ Yes", callback_data="completed_yes"),
+            InlineKeyboardButton("❌ No", callback_data="completed_no"),
         ]
     ]
     return InlineKeyboardMarkup(keyboard)

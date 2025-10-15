@@ -1,0 +1,32 @@
+# --- Conversation Start/End ---
+START_MESSAGE = "Let's log a new training session! 🏋️"
+SAVE_SUCCESS = "Great job! 💪 Training saved."
+SAVE_ERROR = "Oh no! There was an error saving your session."
+CANCEL_MESSAGE = "Logging cancelled. See you next time!"
+
+# --- Prompts ---
+PROMPT_DATE = "What was the date of the training? (e.g., YYYY-MM-DD or 'today')"
+PROMPT_DURATION = "Got it. How long was the training in minutes?"
+PROMPT_WORKOUT_SELECTION_FIRST = "Let's add the first workout."
+PROMPT_WORKOUT_SELECTION_NEXT = "Add another workout, or finish."
+PROMPT_WORKOUT_COMPLETION = "Did you complete this workout?"
+PROMPT_REST_TIME = "Rest time in seconds for {exercise_name}?"
+PROMPT_SETS = (
+    "Enter sets for *{exercise_title}*\\.\n"
+    "Format: `{metric_names}`\n"
+    "`/repeat` last set, `/done` when finished\\."
+)
+
+# --- Confirmations & Info ---
+LOGGING_EXERCISES_FOR = "Logging exercises for {workout_name}."
+ADDED_SET = "Set {count} logged. Next, /repeat, or /done."
+REPEATED_SET = "Set {count} (repeated) logged."
+NO_SET_TO_REPEAT = "No previous set to repeat."
+
+# --- Errors ---
+ERROR_INVALID_DATE = "Please use YYYY-MM-DD or 'today'."
+ERROR_INVALID_DURATION = "Please enter a valid number of minutes."
+ERROR_NO_WORKOUTS_ADDED = "No workouts added yet. Add one or /cancel."
+ERROR_NO_EXERCISES_CONFIGURED = "Workout '{workout_name}' has no exercises. Please select another."
+ERROR_INVALID_SET_INPUT = "Invalid input. Please provide {count} values."
+ERROR_PROCESSING_SET = "Error processing values. Please check and try again."
