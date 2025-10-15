@@ -1,10 +1,13 @@
 workouts:
-  upper:
+  # upper body 
+  pull:
     exercises:
       - name: pullup
         track_rest: true
         metrics:
           - reps
+
+  push:
       - name: dip
         track_rest: true
         metrics:
@@ -12,6 +15,11 @@ workouts:
       - name: pike_pushup
         metrics:
           - reps
+      - name: press
+        metrics:
+          - reps
+          - weight
+
 
   frontsplit:
     exercises:
@@ -35,7 +43,7 @@ workouts:
           - reps
           - weight
 
-  movgh:
+  handstand:
     exercises:
       - name: bridge
         metrics:
