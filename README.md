@@ -1,4 +1,5 @@
 # TODO
+ - [ ] It is not asking completed
  - [ ] Bot should load config from mongo itself
  - [ ] Reporting in bot
 
