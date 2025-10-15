@@ -61,7 +61,7 @@ def backup_trainings_to_files():
             # Create a filename based on the training date and MongoDB ObjectId
             doc_id = str(doc.pop("_id")) # Remove _id from JSON, but use it for filename
             training_date = doc['date']
-            filename = f"{training_date.strftime('%Y-%m-%d_%H-%M-%S')}_{doc_id}.json"
+            filename = f"{training_date.strftime('%Y-%m-%d')}_{doc_id[:6]}.json"
             filepath = os.path.join(backup_dir, filename)
 
             try:

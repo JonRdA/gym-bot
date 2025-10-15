@@ -106,7 +106,7 @@ async def start_logger_command(update: Update, context: CallbackContext):
         user_id=user_id, date=datetime.now().date(), duration=0
     )
     
-    await update.message.reply_text(f"{messages.START_MESSAGE}\n{messages.PROMPT_DATE}")
+    await update.message.reply_text(f"{messages.START_MESSAGE}\n{messages.PROMPT_DATE}", parse_mode="MarkdownV2")
     return AWAITING_DATE
 
 
@@ -139,7 +139,7 @@ async def received_date(update: Update, context: CallbackContext):
         return AWAITING_DURATION
     except ValueError:
         logger.warning("User %s entered an invalid date format: %s", update.effective_user.id, text)
-        await update.message.reply_text(messages.ERROR_INVALID_DATE)
+        await update.message.reply_text(messages.ERROR_INVALID_DATE, parse_mode='MarkdownV2')
         return AWAITING_DATE
 
 
@@ -165,6 +165,7 @@ async def selected_workout_to_add(update: Update, context: CallbackContext, conf
     
     workout_name_str = query.data.split('_')[1] # from "addworkout_upper"
     workout_name = WorkoutName(workout_name_str)
+    context.user_data['current_workout_name'] = workout_name
     
     logger.info("User %s selected workout '%s'", query.from_user.id, workout_name_str)
     
@@ -174,7 +175,6 @@ async def selected_workout_to_add(update: Update, context: CallbackContext, conf
         return SELECTING_WORKOUT
 
     context.user_data['current_workout_config'] = workout_config
-    context.user_data['current_workout_obj'] = Workout(name=workout_name) # completed is False by default
 
     keyboard = create_completion_keyboard()
     await query.edit_message_text(messages.PROMPT_WORKOUT_COMPLETION, reply_markup=keyboard)
@@ -188,7 +188,7 @@ async def finish_training_command(update: Update, context: CallbackContext, mong
     
     if not context.user_data['training_obj'].workouts:
         await query.edit_message_text(messages.ERROR_NO_WORKOUTS_ADDED)
-        return SELECTING_WORKOUT
+        return await _ask_to_select_workout(update, context, config_service)
         
     await query.edit_message_text("Saving your training session...")
     
@@ -208,7 +208,10 @@ async def received_workout_completion(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     
+    workout_name = context.user_data['current_workout_name']
+
     completed = query.data == "completed_yes"
+    context.user_data['current_workout_obj'] = Workout(name=workout_name, completed=completed)
     context.user_data['current_workout_obj'].completed = completed
     context.user_data['current_exercise_idx'] = 0
     
@@ -291,7 +294,7 @@ async def repeat_set_command(update: Update, context: CallbackContext):
     else:
         context.user_data['current_exercise_obj'].sets.append(context.user_data['last_set'])
         count = len(context.user_data['current_exercise_obj'].sets)
-        await update.message.reply_text(messages.REPEATED_SET.format(count=count))
+        await update.message.reply_text(messages.ADDED_SET.format(count=count))
     return PROCESSING_EXERCISES
 
 

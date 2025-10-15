@@ -1,5 +1,6 @@
 # TODO
- - [ ] It is not asking completed
+ - [x] It is not asking completed
+ - [ ] Eliminate enums for names
  - [ ] Bot should load config from mongo itself
  - [ ] Reporting in bot
 
@@ -11,6 +12,10 @@ The project is deployed using Ansible, with the bot running as a systemd service
 
 
 ## Mongo setup
+```docker
+docker run --name mongo -d -p 27017:27017 mongo:latest
+```
+
 ```
 db.trainings.createIndex({ user_id: 1, date: 1 })
 ```

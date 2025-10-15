@@ -24,10 +24,20 @@ workouts:
 
   frontsplit:
     exercises:
+      - name: jefferson_curl
+        metrics:
+          - reps
+          - weight
+      - name: goodmorning
+        metrics:
+          - reps
+          - weight
       - name: wide_split_squat
         metrics:
           - reps
           - thigh2floor
+
+
 
   lower:
     exercises:

@@ -48,6 +48,8 @@ class ExerciseName(str, Enum):
 
     # frontsplit
     WIDE_SPLIT_SQUAT = "wide_split_squat"
+    JEFFERSON_CURL = "jefferson_curl"
+    GOODMORNING = "goodmorning"
 
     # lower
     SHRIMP = "shrimp"
