@@ -8,6 +8,7 @@ workouts:
           - reps
 
   push:
+    exercises:
       - name: dip
         track_rest: true
         metrics:

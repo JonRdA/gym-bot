@@ -30,10 +30,11 @@ class Metric(str, Enum):
 
 class WorkoutName(str, Enum):
     """Enum for the names of individual workouts within a training session."""
-    UPPER = "upper"
+    PULL = "pull"
+    PUSH = "push"
     FRONTSPLIT = "frontsplit"
     LOWER = "lower"
-    MOV_GH = "movgh"
+    HANDSTAND = "handstand"
     HOME = "home"
 
 

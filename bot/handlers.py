@@ -7,7 +7,7 @@ where users compose a training session by adding workouts one by one.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from pydantic import ValidationError
@@ -141,9 +141,9 @@ async def received_date(update: Update, context: CallbackContext):
     text = update.message.text
     try:
         if text.lower() == 'today':
-            training_date = datetime.now().date()
+            training_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         else:
-            training_date = datetime.strptime(text, "%Y-%m-%d").date()
+            training_date = datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         
         context.user_data['training_obj'].date = training_date
         logger.debug("User %s set date to %s", update.effective_user.id, training_date)

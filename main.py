@@ -29,7 +29,7 @@ def main() -> None:
     # and passed down to the handlers that need them (Dependency Injection).
     # This decouples the handlers from the service creation process.
     config_service = TrainingConfigService(config_path="training_config.yaml")
-    mongo_service = MongoService(settings=settings)
+    mongo_service = MongoService()
 
     if not mongo_service.client:
         logger.error("Failed to connect to MongoDB. Bot cannot start.")
