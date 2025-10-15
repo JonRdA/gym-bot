@@ -1,6 +1,7 @@
 import logging
-from datetime import date
+from datetime import datetime
 
+from bson.objectid import ObjectId
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
@@ -38,6 +39,39 @@ class MongoService:
             return True
         except OperationFailure as e:
             logger.error("Failed to save training to MongoDB: %s", e)
+            return False
+    
+    def update_training(self, training_id: str, training_data: dict) -> bool:
+        """
+        Updates an existing training document using its ObjectId.
+        The provided data dictionary will completely replace the existing document.
+        """
+        try:
+            collection = self.db[settings.mongo.trainings_collection]
+            obj_id = ObjectId(training_id)
+
+            # The date in the JSON file is an ISO string, convert it back to datetime
+            if 'date' in training_data and isinstance(training_data['date'], str):
+                # Handle 'Z' suffix from MongoDB's BSON date representation
+                iso_string = training_data['date'].replace('Z', '+00:00')
+                training_data['date'] = datetime.fromisoformat(iso_string)
+
+            result = collection.replace_one({'_id': obj_id}, training_data)
+
+            if result.matched_count == 0:
+                logger.warning("Update failed: No training found with id: %s", training_id)
+                return False
+
+            logger.info(
+                "Updated training %s. Matched: %s, Modified: %s",
+                training_id, result.matched_count, result.modified_count
+            )
+            return True
+        except OperationFailure as e:
+            logger.error("Failed to update training %s: %s", training_id, e)
+            return False
+        except Exception as e:
+            logger.error("An error occurred updating training %s", training_id, exc_info=e)
             return False
 
     def get_user_config(self, user_id: int) -> dict | None:

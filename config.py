@@ -16,7 +16,6 @@ def yaml_config_settings_source() -> Dict[str, Any]:
     if config_path.exists():
         with config_path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-            print("Loaded YAML:", data)
             return data
     logger.debug("YAML file not found!")
     return {}

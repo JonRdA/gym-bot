@@ -1,5 +1,9 @@
 # TODO
  - [x] It is not asking completed
+ - [ ] Download upload scripts should use loggers
+ - [ ] Down up scripts should use mongo service
+ - [ ] Down up scripts must use other settings for mongo service, raspy ones, another init?
+ - [ ] Merge upload download scripts?
  - [ ] Eliminate enums for names
  - [ ] Bot should load config from mongo itself
  - [ ] Reporting in bot

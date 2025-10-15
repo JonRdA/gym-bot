@@ -9,9 +9,13 @@ import json
 import os
 import sys
 from datetime import date, datetime
+from pathlib import Path
 
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
+
+# Add project root to path to allow importing from services
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 # Use the centralized settings object
 from config import settings
@@ -27,9 +31,6 @@ def json_serializer(obj):
 def backup_trainings_to_files():
     """Fetches all trainings and saves them to individual files."""
     backup_dir = settings.backup.directory
-    print(backup_dir)
-    print(settings.mongo.db_name)
-    print(settings.mongo.trainings_collection)
     
     # Ensure the backup directory exists
     try:
@@ -61,7 +62,7 @@ def backup_trainings_to_files():
             # Create a filename based on the training date and MongoDB ObjectId
             doc_id = str(doc.pop("_id")) # Remove _id from JSON, but use it for filename
             training_date = doc['date']
-            filename = f"{training_date.strftime('%Y-%m-%d')}_{doc_id[:6]}.json"
+            filename = f"{training_date.strftime('%Y-%m-%d')}_{doc_id}.json"
             filepath = os.path.join(backup_dir, filename)
 
             try:

@@ -1,0 +1,129 @@
+{
+  "user_id": 5947426856,
+  "date": "2025-10-15T00:00:00",
+  "duration": 43,
+  "workouts": [
+    {
+      "name": "frontsplit",
+      "completed": false,
+      "exercises": [
+        {
+          "name": "jefferson_curl",
+          "sets": [
+            {
+              "metrics": {
+                "reps": 10,
+                "weight": 10
+              }
+            },
+            {
+              "metrics": {
+                "reps": 10,
+                "weight": 10
+              }
+            }
+          ]
+        },
+        {
+          "name": "goodmorning",
+          "sets": [
+            {
+              "metrics": {
+                "reps": 10,
+                "weight": 10
+              }
+            }
+          ]
+        },
+        {
+          "name": "wide_split_squat",
+          "sets": [
+            {
+              "metrics": {
+                "reps": 7,
+                "thigh2floor": 20
+              }
+            },
+            {
+              "metrics": {
+                "reps": 7,
+                "thigh2floor": 20
+              }
+            },
+            {
+              "metrics": {
+                "reps": 7,
+                "thigh2floor": 20
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "handstand",
+      "completed": false,
+      "exercises": [
+        {
+          "name": "bridge",
+          "sets": [
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
+              }
+            },
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
+              }
+            },
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
+              }
+            },
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
+              }
+            },
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
+              }
+            },
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
+              }
+            },
+            {
+              "metrics": {
+                "time": 30,
+                "feet2floor": 16
+              }
+            },
+            {
+              "metrics": {
+                "time": 30,
+                "feet2floor": 16
+              }
+            },
+            {
+              "metrics": {
+                "time": 30,
+                "feet2floor": 16
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
