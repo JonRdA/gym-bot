@@ -1,99 +1,85 @@
 """
-Connects to a remote MongoDB instance to fetch all training documents
-and print them to stdout as a JSON array.
+Connects to a MongoDB instance, fetches all training documents, and saves
+each training as a separate JSON file in a specified backup directory.
 
-Prerequisites on your local machine:
-- pip install pymongo python-dotenv
-
-Usage:
-1. Ensure the MongoDB port (27017) is exposed in the docker-compose.yml
-   on your Raspberry Pi (e.g., ports: - "27017:27017").
-2. Run the script and redirect the output to a file:
-   python backup_script.py > trainings_backup_$(date +%F).json
-3. Use a diff tool to compare backups:
-   diff trainings_backup_2025-10-12.json trainings_backup_2025-10-13.json
+This strategy is ideal for version control systems like Git, as it creates
+an atomic commit for each new training log.
 """
-import argparse
 import json
 import os
 import sys
 from datetime import date, datetime
 
-from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
-load_dotenv()
-
-# --- Configuration ---
-# Details for your Raspberry Pi running MongoDB
-MONGO_URI = os.getenv("MONGO_URI")
-
-# MongoDB connection details
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")
-MONGO_COLLECTION = "trainings"
+# Use the centralized settings object
+from config import settings
 
 
 def json_serializer(obj):
-    """Custom JSON serializer for objects not serializable by default json code"""
+    """Custom JSON serializer for datetime objects."""
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
-def fetch_trainings(output_file=None):
-    """Establishes a direct connection and fetches all training documents."""
-    sys.stderr.write(f"Connecting to MongoDB at {MONGO_URI}...\n")
+def backup_trainings_to_files():
+    """Fetches all trainings and saves them to individual files."""
+    backup_dir = settings.backup.directory
+    print(backup_dir)
+    print(settings.mongo.db_name)
+    print(settings.mongo.trainings_collection)
+    
+    # Ensure the backup directory exists
+    try:
+        os.makedirs(backup_dir, exist_ok=True)
+        sys.stderr.write(f"Using backup directory: '{backup_dir}'\n")
+    except OSError as e:
+        sys.stderr.write(f"Error: Could not create backup directory '{backup_dir}'.\nDetails: {e}\n")
+        sys.exit(1)
+        
+    sys.stderr.write(f"Connecting to MongoDB at {settings.mongo_uri}...\n")
     
     try:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-        # The ismaster command is cheap and does not require auth.
+        client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=5000)
         client.admin.command('ismaster')
         
-        db = client[MONGO_DB_NAME]
-        collection = db[MONGO_COLLECTION]
+        db = client[settings.mongo.db_name]
+        collection = db[settings.mongo.trainings_collection]
         
-        sys.stderr.write(f"Fetching documents from collection '{MONGO_COLLECTION}'...\n")
-        documents = list(collection.find({}, {"_id": 0})) # Find all, exclude the _id field
+        sys.stderr.write(f"Fetching documents from collection '{collection.name}'...\n")
+        documents = list(collection.find({}))
         
-        sys.stderr.write(f"Found {len(documents)} documents. Serializing to JSON...\n")
-        
-        # Pretty-print the JSON to make diffs more readable
-        json_output = json.dumps(documents, default=json_serializer, indent=2)
+        if not documents:
+            sys.stderr.write("No documents found to back up.\n")
+            return
 
-        if output_file:
+        sys.stderr.write(f"Found {len(documents)} documents. Writing to individual files...\n")
+        
+        for doc in documents:
+            # Create a filename based on the training date and MongoDB ObjectId
+            doc_id = str(doc.pop("_id")) # Remove _id from JSON, but use it for filename
+            training_date = doc['date']
+            filename = f"{training_date.strftime('%Y-%m-%d_%H-%M-%S')}_{doc_id}.json"
+            filepath = os.path.join(backup_dir, filename)
+
             try:
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(json_output)
-                sys.stderr.write(f"\nSuccessfully saved backup to {output_file}\n")
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(doc, f, default=json_serializer, indent=2)
             except IOError as e:
-                sys.stderr.write(f"\nError: Could not write to file {output_file}.\nDetails: {e}\n")
-                sys.exit(1)
-        else:
-            # Print the final JSON to stdout
-            print(json_output)
-            sys.stderr.write("\nExport complete.\n")
+                sys.stderr.write(f"Error writing to file {filepath}: {e}\n")
+                continue # Move to the next document
+
+        sys.stderr.write(f"\nSuccessfully backed up {len(documents)} trainings.\n")
 
     except ConnectionFailure as e:
-        sys.stderr.write(f"Error: Could not connect to MongoDB.\n")
-        sys.stderr.write(f"Please ensure MongoDB is running on '{MONGO_URI}' and port is accessible.\n")
-        sys.stderr.write(f"Details: {e}\n")
+        sys.stderr.write(f"Error: Could not connect to MongoDB.\nDetails: {e}\n")
         sys.exit(1)
     finally:
         if 'client' in locals():
             client.close()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Fetch training data from MongoDB and save as JSON."
-    )
-    parser.add_argument(
-        "-o", "--output",
-        dest="output_file",
-        help="Path to the output file. If not provided, prints to standard output.",
-        type=str
-    )
-    args = parser.parse_args()
-    
-    fetch_trainings(output_file=args.output_file)
+    backup_trainings_to_files()
 

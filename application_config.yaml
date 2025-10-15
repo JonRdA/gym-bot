@@ -1,7 +1,7 @@
 mongo:
-  db_name: "workout_tracker"
+  db_name: "gym-bot"
   trainings_collection: "trainings"
-  config_collection: "user_configurations"
+  config_collection: "configurations"
 
 backup:
   directory: "trainings_backup"

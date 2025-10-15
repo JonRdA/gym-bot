@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
@@ -17,36 +18,39 @@ class MongoService:
             self.client = MongoClient(settings.mongo_uri)
             # The ismaster command is cheap and does not require auth.
             self.client.admin.command('ismaster')
-            self.db = self.client[settings.mongo_db_name]
-            logging.info("Successfully connected to MongoDB.")
+            self.db = self.client[settings.mongo.db_name]
+            logger.info("Successfully connected to MongoDB.")
         except ConnectionFailure as e:
-            logging.error("Could not connect to MongoDB: %s", e)
+            logger.error("Could not connect to MongoDB: %s", e)
             raise
 
     def save_training(self, training_data: Training) -> bool:
         """Saves a completed training document to the database."""
         try:
-            collection = self.db[settings.mongo_trainings_collection]
-            # Pydantic's model_dump is used to get a dict suitable for MongoDB
+            collection = self.db[settings.mongo.trainings_collection]
+            # Use model_dump with exclude_none=True to prevent saving null fields
             training_dict = training_data.model_dump(by_alias=True, exclude_none=True)
+            
+            # The date is already a datetime object, no conversion needed.
+            
             result = collection.insert_one(training_dict)
-            logging.info("Successfully saved training with id: %s", result.inserted_id)
+            logger.info("Successfully saved training with id: %s", result.inserted_id)
             return True
         except OperationFailure as e:
-            logging.error("Failed to save training to MongoDB: %s", e)
+            logger.error("Failed to save training to MongoDB: %s", e)
             return False
 
     def get_user_config(self, user_id: int) -> dict | None:
         """Retrieves a user's workout configuration."""
         try:
-            collection = self.db[settings.mongo_config_collection]
+            collection = self.db[settings.mongo.config_collection]
             config = collection.find_one({"user_id": user_id})
             if config:
-                logging.info("Found configuration for user_id: %s", user_id)
+                logger.info("Found configuration for user_id: %s", user_id)
                 return config.get("workouts", {})
-            logging.warning("No configuration found for user_id: %s", user_id)
+            logger.warning("No configuration found for user_id: %s", user_id)
             return None
         except OperationFailure as e:
-            logging.error("Failed to get user config: %s", e)
+            logger.error("Failed to get user config: %s", e)
             return None
 
