@@ -38,8 +38,7 @@ def update_training_from_file(filepath: str):
         if len(training_id) != 24: # Basic validation for ObjectId
             raise ValueError("Invalid ObjectId format in filename")
     except (IndexError, ValueError) as e:
-        logger.error(f"Error: Could not parse training ObjectId from filename '{filename}'.", e)
-        logger.error(f"Expected format: YYYY-MM-DD_HH-MM-SS_objectid.json. Details: {e}")
+        logger.error(f"Error: Could not parse training ObjectId from filename '{filename}'.", e, exc_info=True)
         sys.exit(1)
 
     # --- Read and parse JSON data ---
@@ -47,7 +46,7 @@ def update_training_from_file(filepath: str):
         with open(filepath, 'r', encoding='utf-8') as f:
             training_data = json.load(f)
     except (json.JSONDecodeError, IOError) as e:
-        logger.error(f"Error reading or parsing JSON file '{filepath}': {e}", e)
+        logger.error(f"Error reading or parsing JSON file '{filepath}': {e}", e, exc_info=True)
         sys.exit(1)
         
     logger.info(f"Attempting to update training with ID: {training_id}")
@@ -63,7 +62,7 @@ def update_training_from_file(filepath: str):
             logger.info("❌ Failed to update the training record. Check logs for details.")
             
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}", e)
+        logger.error(f"An unexpected error occurred: {e}", e, exc_info=True)
         sys.exit(1)
 
 

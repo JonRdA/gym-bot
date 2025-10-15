@@ -270,7 +270,7 @@ async def received_set(update: Update, context: CallbackContext):
         count = len(context.user_data['current_exercise_obj'].sets)
         await update.message.reply_text(messages.ADDED_SET.format(count=count))
     except (ValueError, ValidationError) as e:
-        logger.error("Error parsing set data '%s': %s", update.message.text, e)
+        logger.error("Error parsing set data '%s': %s", update.message.text, e, exc_info=True)
         await update.message.reply_text(messages.ERROR_PROCESSING_SET)
     return PROCESSING_EXERCISES
 

@@ -21,7 +21,6 @@ workouts:
           - reps
           - weight
 
-
   frontsplit:
     exercises:
       - name: jefferson_curl
@@ -36,8 +35,6 @@ workouts:
         metrics:
           - reps
           - thigh2floor
-
-
 
   lower:
     exercises:

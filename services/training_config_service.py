@@ -19,10 +19,10 @@ class TrainingConfigService:
                 self._config = yaml.safe_load(f)
                 logger.info("Workout configuration loaded successfully from %s", config_path)
         except FileNotFoundError:
-            logger.error("Workout configuration file not found at %s", config_path)
+            logger.error("Workout configuration file not found at %s", config_path, exc_info=True)
             self._config = {"workouts": {}}
         except yaml.YAMLError as e:
-            logger.error("Error parsing YAML file %s: %s", config_path, e)
+            logger.error("Error parsing YAML file %s: %s", config_path, e, exc_info=True)
             self._config = {"workouts": {}}
 
     def get_workout_names(self) -> List[WorkoutName]:

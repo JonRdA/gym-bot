@@ -22,7 +22,7 @@ class MongoService:
             self.db = self.client[settings.mongo.db_name]
             logger.info("Successfully connected to MongoDB.")
         except ConnectionFailure as e:
-            logger.error("Could not connect to MongoDB: %s", e)
+            logger.error("Could not connect to MongoDB: %s", e, exc_info=True)
             raise
 
     def save_training(self, training_data: Training) -> bool:
@@ -38,7 +38,7 @@ class MongoService:
             logger.info("Successfully saved training with id: %s", result.inserted_id)
             return True
         except OperationFailure as e:
-            logger.error("Failed to save training to MongoDB: %s", e)
+            logger.error("Failed to save training to MongoDB: %s", e, exc_info=True)
             return False
     
     def update_training(self, training_id: str, training_data: dict) -> bool:
@@ -68,10 +68,10 @@ class MongoService:
             )
             return True
         except OperationFailure as e:
-            logger.error("Failed to update training %s: %s", training_id, e)
+            logger.error("Failed to update training %s: %s", training_id, e, exc_info=True)
             return False
         except Exception as e:
-            logger.error("An error occurred updating training %s", training_id, exc_info=e)
+            logger.error("An error occurred updating training %s", training_id, exc_info=True)
             return False
 
     def get_user_config(self, user_id: int) -> dict | None:
@@ -85,6 +85,6 @@ class MongoService:
             logger.warning("No configuration found for user_id: %s", user_id)
             return None
         except OperationFailure as e:
-            logger.error("Failed to get user config: %s", e)
+            logger.error("Failed to get user config: %s", e, exc_info=True)
             return None
 
