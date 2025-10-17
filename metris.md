@@ -7,6 +7,7 @@ step | #0 | 16
 thick plate | 10 | 6
 old_kettlebell | 20.0 | 29.0
 old_dumbell | 12.5 | 13.0
+home plate | 2 | 1.75
 
 ## running distances
 |route | distance (m)
