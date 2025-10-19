@@ -1,0 +1,80 @@
+{
+  "user_id": 5947426856,
+  "date": "2025-10-17T00:00:00",
+  "duration": 12,
+  "workouts": [
+    {
+      "name": "home",
+      "completed": true,
+      "exercises": [
+        {
+          "name": "rice_bucket",
+          "sets": [
+            {
+              "metrics": {
+                "time": 5
+              }
+            }
+          ]
+        },
+        {
+          "name": "squat2sissy",
+          "sets": [
+            {
+              "metrics": {
+                "reps": 10,
+                "feet2floor": 3.5
+              }
+            },
+            {
+              "metrics": {
+                "reps": 10,
+                "feet2floor": 3.5
+              }
+            },
+            {
+              "metrics": {
+                "reps": 10,
+                "feet2floor": 3.5
+              }
+            }
+          ]
+        },
+        {
+          "name": "heel_elevation",
+          "sets": [
+            {
+              "metrics": {
+                "reps": 10,
+                "weight": 0
+              }
+            },
+            {
+              "metrics": {
+                "reps": 10,
+                "weight": 0
+              }
+            },
+            {
+              "metrics": {
+                "reps": 10,
+                "weight": 0
+              }
+            }
+          ]
+        },
+        {
+          "name": "towel_roll",
+          "sets": [
+            {
+              "metrics": {
+                "reps": 5,
+                "weight": 1.5
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
