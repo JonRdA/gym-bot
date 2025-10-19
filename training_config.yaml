@@ -20,6 +20,9 @@ workouts:
         metrics:
           - reps
           - weight
+      - name: pushup
+        metrics:
+          - reps
 
   frontsplit:
     exercises:

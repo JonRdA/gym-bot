@@ -181,7 +181,8 @@ async def selected_workout_to_add(update: Update, context: CallbackContext, conf
     return AWAITING_WORKOUT_COMPLETION
 
 
-async def finish_training_command(update: Update, context: CallbackContext, mongo_service: MongoService):
+async def finish_training_command(update: Update, context: CallbackContext, mongo_service: MongoService,
+        config_service: TrainingConfigService):
     """Handles the user finishing the training log."""
     query = update.callback_query
     await query.answer()
@@ -315,7 +316,7 @@ def get_conversation_handler(config_service: TrainingConfigService, mongo_servic
     # --- Handler setup using lambdas for dependency injection ---
     received_duration_handler = lambda u, c: received_duration(u, c, config_service=config_service)
     selected_workout_handler = lambda u, c: selected_workout_to_add(u, c, config_service=config_service)
-    finish_training_handler = lambda u, c: finish_training_command(u, c, mongo_service=mongo_service)
+    finish_training_handler = lambda u, c: finish_training_command(u, c, mongo_service=mongo_service, config_service=config_service)
     done_exercise_handler = lambda u, c: handle_next_exercise(u, c, config_service=config_service)
 
     return ConversationHandler(
