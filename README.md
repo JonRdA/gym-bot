@@ -17,7 +17,11 @@ The project is deployed using Ansible, with the bot running as a systemd service
 
 ## Mongo setup
 ```docker
-docker run --name mongo -d -p 27017:27017 mongo:latest
+docker run -d \
+  --name "mongo-db" \
+  -p 127.0.0.1:27017:27017 \
+  -v /home/jonrda/code/gym-bot/mongo-data:/data/db \
+  mongo:latest
 ```
 
 ```
