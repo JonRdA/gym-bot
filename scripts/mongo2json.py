@@ -1,86 +1,94 @@
 """
-Connects to a MongoDB instance, fetches all training documents, and saves
-each training as a separate JSON file in a specified backup directory.
-
-This strategy is ideal for version control systems like Git, as it creates
-an atomic commit for each new training log.
+Updates or inserts training records in MongoDB from a single JSON file or
+a directory of JSON files.
 """
+import argparse
 import json
+import logging
 import os
 import sys
-from datetime import date, datetime
 from pathlib import Path
-
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
 
 # Add project root to path to allow importing from services
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-# Use the centralized settings object
 from config import settings
+from services.mongo_service import MongoService
+
+# --- Setup Logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def json_serializer(obj):
-    """Custom JSON serializer for datetime objects."""
-    if isinstance(obj, (datetime, date)):
-        return obj.isoformat()
-    raise TypeError(f"Type {type(obj)} not serializable")
-
-
-def backup_trainings_to_files():
-    """Fetches all trainings and saves them to individual files."""
-    backup_dir = settings.backup.directory
-    
-    # Ensure the backup directory exists
+def upload_single_file(filepath: str, mongo_service: MongoService) -> bool:
+    """Reads a single JSON file and upserts it to MongoDB."""
+    logging.info("Processing file: %s", filepath)
     try:
-        os.makedirs(backup_dir, exist_ok=True)
-        sys.stderr.write(f"Using backup directory: '{backup_dir}'\n")
-    except OSError as e:
-        sys.stderr.write(f"Error: Could not create backup directory '{backup_dir}'.\nDetails: {e}\n")
-        sys.exit(1)
+        filename = os.path.basename(filepath)
+        training_id = filename.split('_')[-1].replace('.json', '')
+        if len(training_id) != 24:
+            raise ValueError("Invalid ObjectId format in filename")
+
+        with open(filepath, 'r', encoding='utf-8') as f:
+            training_data = json.load(f)
         
-    sys.stderr.write(f"Connecting to MongoDB at {settings.mongo_uri}...\n")
+        return mongo_service.update_training(training_id, training_data)
+
+    except (IndexError, ValueError) as e:
+        logging.error("Skipping '%s'. Could not parse ObjectId. Details: %s", filename, e)
+        return False
+    except (json.JSONDecodeError, IOError) as e:
+        logging.error("Skipping '%s'. Error reading file. Details: %s", filename, e)
+        return False
+
+
+def main():
+    """Main function to parse arguments and trigger the upload."""
+    parser = argparse.ArgumentParser(
+        description="Upload training data to MongoDB from JSON files.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument("path", type=str, help="Path to a single .json file or a directory containing .json files.")
+    args = parser.parse_args()
     
+    input_path = args.path
+
     try:
-        client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=5000)
-        client.admin.command('ismaster')
-        
-        db = client[settings.mongo.db_name]
-        collection = db[settings.mongo.trainings_collection]
-        
-        sys.stderr.write(f"Fetching documents from collection '{collection.name}'...\n")
-        documents = list(collection.find({}))
-        
-        if not documents:
-            sys.stderr.write("No documents found to back up.\n")
-            return
+        mongo_service = MongoService()
+        success_count = 0
+        fail_count = 0
 
-        sys.stderr.write(f"Found {len(documents)} documents. Writing to individual files...\n")
-        
-        for doc in documents:
-            # Create a filename based on the training date and MongoDB ObjectId
-            doc_id = str(doc.pop("_id")) # Remove _id from JSON, but use it for filename
-            training_date = doc['date']
-            filename = f"{training_date.strftime('%Y-%m-%d')}_{doc_id}.json"
-            filepath = os.path.join(backup_dir, filename)
+        if os.path.isfile(input_path):
+            if input_path.endswith('.json'):
+                if upload_single_file(input_path, mongo_service):
+                    success_count += 1
+                else:
+                    fail_count += 1
+            else:
+                logging.error("Error: Provided file is not a .json file.")
+                sys.exit(1)
 
-            try:
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    json.dump(doc, f, default=json_serializer, indent=2)
-            except IOError as e:
-                sys.stderr.write(f"Error writing to file {filepath}: {e}\n")
-                continue # Move to the next document
+        elif os.path.isdir(input_path):
+            logging.info("Processing all .json files in directory: %s", input_path)
+            for filename in os.listdir(input_path):
+                if filename.endswith('.json'):
+                    filepath = os.path.join(input_path, filename)
+                    if upload_single_file(filepath, mongo_service):
+                        success_count += 1
+                    else:
+                        fail_count += 1
+        else:
+            logging.error("Error: Path does not exist or is not a valid file/directory: %s", input_path)
+            sys.exit(1)
+            
+        logging.info("--- Upload Complete ---")
+        logging.info("✅ Succeeded: %d", success_count)
+        logging.info("❌ Failed:    %d", fail_count)
 
-        sys.stderr.write(f"\nSuccessfully backed up {len(documents)} trainings.\n")
-
-    except ConnectionFailure as e:
-        sys.stderr.write(f"Error: Could not connect to MongoDB.\nDetails: {e}\n")
+    except Exception as e:
+        logging.critical("An unexpected error occurred during the process: %s", e)
         sys.exit(1)
-    finally:
-        if 'client' in locals():
-            client.close()
+
 
 if __name__ == "__main__":
-    backup_trainings_to_files()
+    main()
 

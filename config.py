@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 import yaml
 from pydantic import Field
@@ -29,6 +29,9 @@ class MongoSettings(BaseSettings):
 class BackupSettings(BaseSettings):
     directory: str = "trainings_backup"
 
+class ReportingSettings(BaseSettings):
+    excluded_workouts: List[str] = ["home"]
+
 # --- Main settings ---
 class Settings(BaseSettings):
     telegram_bot_token: str | None = None
@@ -36,6 +39,7 @@ class Settings(BaseSettings):
 
     mongo: MongoSettings = Field(default_factory=MongoSettings)
     backup: BackupSettings = Field(default_factory=BackupSettings)
+    reporting: ReportingSettings = Field(default_factory=ReportingSettings)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -62,3 +66,4 @@ if __name__ == "__main__":
     print("Mongo DB:", s.mongo.db_name)
     print("Mongo collection:", s.mongo.trainings_collection)
     print("Backup directory:", s.backup.directory)
+    print("Excluded workouts", s.reporting.excluded_workouts)

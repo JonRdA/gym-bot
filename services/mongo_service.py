@@ -92,15 +92,30 @@ class MongoService:
 
     # --- Reporting Methods ---
 
-    def get_last_n_trainings(self, user_id: int, n: int) -> list:
-        """Retrieves the last N training documents for a user, sorted by date."""
+    def get_trainings_for_last_n_days(self, user_id: int, days: int, excluded_workouts: list[str] | None = None) -> list:
+        """
+        Retrieves training documents for a user from the last N days.
+        Can optionally exclude trainings containing certain workout names.
+        """
         try:
             collection = self.db[settings.mongo.trainings_collection]
-            # Sort by date descending (-1) and limit the result
-            cursor = collection.find({"user_id": user_id}).sort("date", -1).limit(n)
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            query = {
+                "user_id": user_id,
+                "date": {"$gte": start_date, "$lte": end_date}
+            }
+
+            if excluded_workouts:
+                # Add a condition to exclude documents where the 'workouts.name' array
+                # contains any of the excluded workout names.
+                query["workouts.name"] = {"$nin": excluded_workouts}
+
+            cursor = collection.find(query).sort("date", -1)
             return list(cursor)
         except Exception as e:
-            logging.error("Failed to get last %d trainings for user %s: %s", n, user_id, e)
+            logging.error("Failed to get trainings for last %d days for user %s: %s", days, user_id, e)
             return []
 
     def get_training_by_id(self, training_id: str) -> dict | None:
@@ -112,7 +127,7 @@ class MongoService:
             logging.error("Failed to get training by id %s: %s", training_id, e)
             return None
 
-    def get_training_dates_for_month(self, user_id: int, year: int, month: int) -> list[datetime]:
+    def get_training_dates_for_month(self, user_id: int, year: int, month: int, excluded_workouts: list[str] | None = None) -> list[datetime]:
         """Retrieves all training dates for a user in a given month and year."""
         start_date = datetime(year, month, 1)
         # Handles month wrapping correctly
@@ -125,6 +140,10 @@ class MongoService:
                 "$lt": end_date
             }
         }
+
+        if excluded_workouts:
+            query["workouts.name"] = {"$nin": excluded_workouts}
+
         try:
             collection = self.db[settings.mongo.trainings_collection]
             # Use projection to only return the 'date' field for efficiency
