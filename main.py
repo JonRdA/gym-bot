@@ -1,52 +1,53 @@
-"""Main entry point for the Telegram Workout Bot."""
-
 import logging
 
 from telegram.ext import Application
 
 from bot.handlers import get_conversation_handler
+from bot.reporting_handlers import get_reporting_handlers
 from config import settings
 from services.mongo_service import MongoService
 from services.training_config_service import TrainingConfigService
 
-# Set up basic logging
+# --- Setup Logging ---
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-# Set higher logging level for httpx to avoid noisy GET and POST requests
+# Suppress noisy httpx logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
-
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Starts the bot."""
-    logger.info("Initializing services...")
+    """Start the bot."""
+    logger.info("Starting bot...")
 
-    # 1. Initialize services
-    # Architectural decision: Services are instantiated here at the top level
-    # and passed down to the handlers that need them (Dependency Injection).
-    # This decouples the handlers from the service creation process.
-    config_service = TrainingConfigService(config_path="training_config.yaml")
-    mongo_service = MongoService()
-
-    if not mongo_service.client:
-        logger.error("Failed to connect to MongoDB. Bot cannot start.")
+    # --- Initialize Services (Dependencies) ---
+    try:
+        mongo_service = MongoService()
+        config_service = TrainingConfigService(config_path="training_config.yaml")
+        # config_service = TrainingConfigService("training_config.yaml", mongo_service)
+    except Exception as e:
+        logger.critical("Failed to initialize services. Bot cannot start. Error: %s", e)
         return
 
-    logger.info("Setting up Telegram bot...")
-    # 2. Create the Telegram Application
+    # --- Create the Telegram Application ---
     application = Application.builder().token(settings.telegram_bot_token).build()
 
-    # 3. Get and add the conversation handler
+    # --- Register Handlers ---
     conv_handler = get_conversation_handler(config_service, mongo_service)
+    reporting_handlers = get_reporting_handlers(mongo_service)
+    
     application.add_handler(conv_handler)
+    for handler in reporting_handlers:
+        application.add_handler(handler)
 
-    logger.info("Bot is starting to poll...")
-    # 4. Run the bot until the user presses Ctrl-C
+    logger.info("Bot is ready and listening for commands.")
+
+    # --- Start the Bot ---
     application.run_polling()
 
 
 if __name__ == "__main__":
     main()
+

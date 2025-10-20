@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from bson.objectid import ObjectId
 from pymongo import MongoClient
@@ -56,22 +56,24 @@ class MongoService:
                 iso_string = training_data['date'].replace('Z', '+00:00')
                 training_data['date'] = datetime.fromisoformat(iso_string)
 
-            result = collection.replace_one({'_id': obj_id}, training_data)
+            # Use replace_one with upsert=True. This will create the document if it
+            # doesn't exist, which is perfect for populating a new database.
+            result = collection.replace_one({'_id': obj_id}, training_data, upsert=True)
 
-            if result.matched_count == 0:
-                logger.warning("Update failed: No training found with id: %s", training_id)
+            if result.matched_count == 0 and not result.upserted_id:
+                logging.warning("Update/Upsert failed for id: %s", training_id)
                 return False
 
-            logger.info(
-                "Updated training %s. Matched: %s, Modified: %s",
-                training_id, result.matched_count, result.modified_count
+            logging.info(
+                "Processed training %s. Matched: %s, Modified: %s, Upserted: %s",
+                training_id, result.matched_count, result.modified_count, result.upserted_id is not None
             )
             return True
         except OperationFailure as e:
-            logger.error("Failed to update training %s: %s", training_id, e, exc_info=True)
+            logging.error("Failed to update training %s: %s", training_id, e)
             return False
         except Exception as e:
-            logger.error("An error occurred updating training %s", training_id, exc_info=True)
+            logging.error("An error occurred updating training %s: %s", training_id, e)
             return False
 
     def get_user_config(self, user_id: int) -> dict | None:
@@ -80,11 +82,55 @@ class MongoService:
             collection = self.db[settings.mongo.config_collection]
             config = collection.find_one({"user_id": user_id})
             if config:
-                logger.info("Found configuration for user_id: %s", user_id)
+                logging.info("Found configuration for user_id: %s", user_id)
                 return config.get("workouts", {})
-            logger.warning("No configuration found for user_id: %s", user_id)
+            logging.warning("No configuration found for user_id: %s", user_id)
             return None
         except OperationFailure as e:
-            logger.error("Failed to get user config: %s", e, exc_info=True)
+            logging.error("Failed to get user config: %s", e)
             return None
+
+    # --- Reporting Methods ---
+
+    def get_last_n_trainings(self, user_id: int, n: int) -> list:
+        """Retrieves the last N training documents for a user, sorted by date."""
+        try:
+            collection = self.db[settings.mongo.trainings_collection]
+            # Sort by date descending (-1) and limit the result
+            cursor = collection.find({"user_id": user_id}).sort("date", -1).limit(n)
+            return list(cursor)
+        except Exception as e:
+            logging.error("Failed to get last %d trainings for user %s: %s", n, user_id, e)
+            return []
+
+    def get_training_by_id(self, training_id: str) -> dict | None:
+        """Retrieves a single training document by its ObjectId."""
+        try:
+            collection = self.db[settings.mongo.trainings_collection]
+            return collection.find_one({"_id": ObjectId(training_id)})
+        except Exception as e:
+            logging.error("Failed to get training by id %s: %s", training_id, e)
+            return None
+
+    def get_training_dates_for_month(self, user_id: int, year: int, month: int) -> list[datetime]:
+        """Retrieves all training dates for a user in a given month and year."""
+        start_date = datetime(year, month, 1)
+        # Handles month wrapping correctly
+        end_date = (start_date + timedelta(days=32)).replace(day=1)
+        
+        query = {
+            "user_id": user_id,
+            "date": {
+                "$gte": start_date,
+                "$lt": end_date
+            }
+        }
+        try:
+            collection = self.db[settings.mongo.trainings_collection]
+            # Use projection to only return the 'date' field for efficiency
+            cursor = collection.find(query, {"date": 1, "_id": 0})
+            return [doc["date"] for doc in cursor]
+        except Exception as e:
+            logging.error("Failed to get training dates for user %s: %s", user_id, e)
+            return []
 
