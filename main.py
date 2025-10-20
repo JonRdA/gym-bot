@@ -28,7 +28,7 @@ def main() -> None:
         config_service = TrainingConfigService(config_path="training_config.yaml")
         # config_service = TrainingConfigService("training_config.yaml", mongo_service)
     except Exception as e:
-        logger.critical("Failed to initialize services. Bot cannot start. Error: %s", e)
+        logger.critical("Failed to initialize services. Bot cannot start. Error: %s", e, exc_info=True)
         return
 
     # --- Create the Telegram Application ---
