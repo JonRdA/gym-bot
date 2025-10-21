@@ -1,6 +1,6 @@
 """
-Updates or inserts training records in MongoDB from a single JSON file or
-a directory of JSON files.
+Updates or inserts training records in MongoDB from JSON files.
+Selects the target environment via a command-line argument.
 """
 import argparse
 import json
@@ -9,13 +9,10 @@ import os
 import sys
 from pathlib import Path
 
-# Add project root to path to allow importing from services
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from config import settings
+from config import create_settings
 from services.mongo_service import MongoService
 
-# --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
@@ -47,13 +44,23 @@ def main():
         description="Upload training data to MongoDB from JSON files.",
         formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument("path", type=str, help="Path to a single .json file or a directory containing .json files.")
+    parser.add_argument("path", type=str, help="Path to a single .json file or a directory.")
+    parser.add_argument(
+        "--env",
+        type=str,
+        default='local',  # Default to 'local' for safety
+        choices=['local', 'raspy'],
+        help="Environment to target ('local' or 'raspy'). Defaults to 'local'."
+    )
     args = parser.parse_args()
-    
     input_path = args.path
 
     try:
-        mongo_service = MongoService()
+        # The factory creates settings based on the command-line argument.
+        settings = create_settings(env=args.env)
+        logging.info("--> Targeting '%s' environment (host: %s)", args.env, settings.mongo_host)
+
+        mongo_service = MongoService(settings)
         success_count = 0
         fail_count = 0
 

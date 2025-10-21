@@ -1,58 +1,70 @@
-"""Service to load and access the training program configuration from YAML."""
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Iterable
 
 import yaml
+from cachetools import TTLCache, cached
 
-from models.enums import ExerciseName, Metric, WorkoutName
+from models.enums import WorkoutName
+from services.mongo_service import MongoService
 
 logger = logging.getLogger(__name__)
 
-
 class TrainingConfigService:
-    """Handles loading and providing access to the training config."""
+    """Manages loading and accessing workout configurations with caching."""
 
-    def __init__(self, config_path: str):
-        """Initializes the service by loading the workout configurations."""
+    def __init__(self, config_path: str, mongo_service: MongoService):
+        self.mongo_service = mongo_service
+        # Cache holds up to 100 users' configs, each for 1 hour (3600 seconds)
+        self._user_config_cache = TTLCache(maxsize=100, ttl=3600)
+        
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                self._config = yaml.safe_load(f)
-                logger.info("Workout configuration loaded successfully from %s", config_path)
-        except FileNotFoundError:
-            logger.error("Workout configuration file not found at %s", config_path, exc_info=True)
-            self._config = {"workouts": {}}
-        except yaml.YAMLError as e:
-            logger.error("Error parsing YAML file %s: %s", config_path, e, exc_info=True)
-            self._config = {"workouts": {}}
+            with open(config_path, 'r') as file:
+                self._default_config = yaml.safe_load(file).get('workouts', {})
+            logger.info("Successfully loaded default training config from %s", config_path)
+        except (FileNotFoundError, yaml.YAMLError) as e:
+            logger.error("Failed to load training config file: %s", e, exc_info=True)
+            self._default_config = {}
 
-    def get_workout_names(self) -> List[WorkoutName]:
-        """Returns a list of all available workout names from the config."""
-        return [WorkoutName(name) for name in self._config.get("workouts", {}).keys()]
+    def get_workout_names(self, user_id: int) -> list[str]:
+        """Returns a list of available workout names for a user, checking cache first."""
+        user_config = self._get_user_config_from_mongo(user_id)
+        if user_config:
+            return list(user_config.keys())
+        return list(self._default_config.keys())
 
-    def get_workout_details(self, workout_name: WorkoutName) -> Optional[Dict[str, Any]]:
-        """
-        Gets the configuration details for a given workout name.
+    def get_workout_details(self, user_id: int, workout_name: WorkoutName) -> dict | None:
+        """Gets the configuration for a specific workout for a user, using cache."""
+        user_config = self._get_user_config_from_mongo(user_id)
+        if user_config and workout_name.value in user_config:
+            return user_config[workout_name.value]
         
-        Args:
-            workout_name: The name of the workout.
+        return self._default_config.get(workout_name.value)
 
-        Returns:
-            A dictionary with the workout details (e.g., exercises) or None if not found.
+    @cached(cache=lambda self: self._user_config_cache)
+    def _get_user_config_from_mongo(self, user_id: int) -> dict | None:
         """
-        return self._config.get("workouts", {}).get(workout_name.value)
-
-    def get_exercises_for_workout(self, workout_name: WorkoutName) -> List[Dict[str, Any]]:
+        Internal method that fetches user config from MongoDB.
+        This method is cached, so the DB is only hit on a cache miss.
         """
-        Gets the list of exercise configurations for a given workout.
+        logger.debug("CACHE MISS: Fetching config from MongoDB for user %s", user_id)
+        return self.mongo_service.get_user_config(user_id)
 
-        Args:
-            workout_name: The name of the workout.
+    def get_exercise_details(self, user_id: int, exercise_name: str) -> dict | None:
+        """Finds the details of a specific exercise across all of a user's workouts."""
+        user_config = self._get_user_config_from_mongo(user_id)
+        if user_config:
+            details = self._get_exercise_details_from_config(user_config.values(), exercise_name)
+            if details:
+                return details
         
-        Returns:
-            A list of exercise dictionaries, or an empty list if not found.
-        """
-        workout_details = self.get_workout_details(workout_name)
-        if workout_details:
-            return workout_details.get("exercises", [])
-        return []
+        # Fallback to default config if not found in user's config
+        return self._get_exercise_details_from_config(self._default_config.values(), exercise_name)
+
+    def _get_exercise_details_from_config(self, workouts: Iterable[dict], exercise_name: str) -> dict | None: 
+        """Helper to find an exercise in a list of workout configs."""
+        for workout in workouts:
+            for ex in workout.get('exercises', []):
+                if ex.get('name') == exercise_name:
+                    return ex
+        return None
 

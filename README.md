@@ -1,12 +1,15 @@
-# TODO
+# TODO -> CLEAN CODE
+ - Read modules and cleanup ideas, tell g
+ - Reorganize files
+ - Think more reporting
  - [x] It is not asking completed
- - [ ] Download upload scripts should use loggers
- - [ ] Down up scripts should use mongo service
+ - [x] Download upload scripts should use loggers
+ - [x] Down up scripts should use mongo service
  - [ ] Down up scripts must use other settings for mongo service, raspy ones, another init?
- - [ ] Merge upload download scripts?
+ - [x] Merge upload download scripts?
  - [ ] Eliminate enums for names
- - [ ] Bot should load config from mongo itself
- - [ ] Reporting in bot
+ - [ ] Bot should load config from mongo itself? Not yet
+ - [x] Reporting in bot
 
 # Gym Bot - Workout Logging Telegram Bot
 
@@ -18,10 +21,13 @@ The project is deployed using Ansible, with the bot running as a systemd service
 ## Mongo setup
 ```docker
 docker run -d \
-  --name "mongo-db" \
-  -p 127.0.0.1:27017:27017 \
-  -v /home/jonrda/code/gym-bot/mongo-data:/data/db \
-  mongo:latest
+  --name mongo \
+  --restart always \
+  -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=your_mongo_user \
+  -e MONGO_INITDB_ROOT_PASSWORD=your_secret_mongo_password \
+  -v /path/on/your/machine/mongo-data:/data/db \
+  mongo:4.0
 ```
 
 ```

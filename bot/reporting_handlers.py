@@ -11,9 +11,9 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-from config import settings
 from services.mongo_service import MongoService
 from services.reporting_service import ReportingService
+from services.training_config_service import TrainingConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,9 @@ async def view_training_start(update: Update, context: CallbackContext, mongo_se
     except (ValueError, IndexError):
         days_to_show = 7
 
-    excluded = settings.reporting.excluded_workouts
+    # TODO where do I get this value from
+    # excluded = settings.reporting.excluded_workouts
+    excluded = ["home"]
     last_trainings = mongo_service.get_trainings_for_last_n_days(user_id, days=days_to_show, excluded_workouts=excluded)
     
     if not last_trainings:
@@ -88,7 +90,7 @@ async def cancel_view(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
-def get_reporting_handlers(mongo_service: MongoService, reporting_service: ReportingService) -> list:
+def get_reporting_handlers(mongo_service: MongoService, reporting_service: ReportingService, config_service: TrainingConfigService) -> list:
     """Creates and returns all reporting-related handlers."""
     
     view_training_conv_handler = ConversationHandler(

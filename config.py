@@ -1,69 +1,70 @@
-import logging
+import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
 
 import yaml
-from pydantic import Field
+from dotenv import dotenv_values
+from pydantic import BaseModel, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-logger = logging.getLogger(__name__)
+# --- Load non-sensitive config from YAML ---
+CONFIG_FILE_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
+try:
+    with open(CONFIG_FILE_PATH, 'r') as f:
+        YAML_CONFIG = yaml.safe_load(f)
+except (FileNotFoundError, yaml.YAMLError):
+    YAML_CONFIG = {}
 
-# --- Helper function ---
-def yaml_config_settings_source() -> Dict[str, Any]:
-    """Load variables from a YAML config file."""
-    config_path = Path("application_config.yaml")
-    logger.debug(f"Loading YAML from: {config_path.resolve()}")
-    if config_path.exists():
-        with config_path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-            return data
-    logger.debug("YAML file not found!")
-    return {}
+# --- Pydantic Models for structured config ---
+class MongoSettings(BaseModel):
+    db_name: str = YAML_CONFIG.get('mongo', {}).get('db_name', 'workout_tracker')
+    trainings_collection: str = YAML_CONFIG.get('mongo', {}).get('trainings_collection', 'trainings')
+    config_collection: str = YAML_CONFIG.get('mongo', {}).get('config_collection', 'user_configurations')
 
-# --- Nested models ---
-class MongoSettings(BaseSettings):
-    db_name: str = "kk"
-    trainings_collection: str = "kk"
-    config_collection: str = "kk"
+class BackupSettings(BaseModel):
+    directory: str = YAML_CONFIG.get('backup', {}).get('directory', 'trainings_backup')
 
-class BackupSettings(BaseSettings):
-    directory: str = "trainings_backup"
+class ReportingSettings(BaseModel):
+    excluded_workouts: list[str] = YAML_CONFIG.get('reporting', {}).get('excluded_workouts', [])
 
-class ReportingSettings(BaseSettings):
-    excluded_workouts: List[str] = ["home"]
-
-# --- Main settings ---
 class Settings(BaseSettings):
-    telegram_bot_token: str | None = None
-    mongo_uri: str | None = None
+    """
+    Main settings class. It validates data from environment variables or passed-in values.
+    Intended to be instantiated ONLY by the create_settings factory.
+    """
+    model_config = SettingsConfigDict(extra='ignore') # Ignore extra fields passed in
 
-    mongo: MongoSettings = Field(default_factory=MongoSettings)
-    backup: BackupSettings = Field(default_factory=BackupSettings)
-    reporting: ReportingSettings = Field(default_factory=ReportingSettings)
+    telegram_bot_token: str
+    mongo_host: str = "localhost"
+    mongo_port: int = 27017
+    mongo_user: str | None = None
+    mongo_password: str | None = None
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-    )
+    @computed_field
+    @property
+    def mongo_uri(self) -> str:
+        """Constructs the MongoDB connection URI from components."""
+        if self.mongo_user and self.mongo_password:
+            return f"mongodb://{self.mongo_user}:{self.mongo_password}@{self.mongo_host}:{self.mongo_port}/"
+        return f"mongodb://{self.mongo_host}:{self.mongo_port}/"
 
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: Callable[..., dict],
-        env_settings: Callable[..., dict],
-        dotenv_settings: Callable[..., dict],
-        file_secret_settings: Callable[..., dict],
-    ) -> Tuple[Callable[..., dict], ...]:
-        """Define the order of settings sources."""
-        return (env_settings, dotenv_settings, yaml_config_settings_source, init_settings, file_secret_settings)
+    mongo: MongoSettings = MongoSettings()
+    backup: BackupSettings = BackupSettings()
+    reporting: ReportingSettings = ReportingSettings()
 
-# Instantiate the settings object to be used throughout the application
-settings = Settings()
+def create_settings(env: str = 'local') -> Settings:
+    """
+    Settings Factory: Creates a Settings instance by explicitly loading the correct .env file.
+    This is the single point of entry for loading configuration.
+    """
+    env_file = Path(__file__).resolve().parent / f".env.{env}"
+    if not env_file.exists():
+        raise FileNotFoundError(f"Environment file not found for env '{env}': {env_file}")
 
-if __name__ == "__main__":
-    s = Settings()
-    print("Mongo DB:", s.mongo.db_name)
-    print("Mongo collection:", s.mongo.trainings_collection)
-    print("Backup directory:", s.backup.directory)
-    print("Excluded workouts", s.reporting.excluded_workouts)
+    # Step 1: Manually load the specified .env file into a dictionary.
+    env_vars = {k.lower(): v for k, v in dotenv_values(env_file).items()}
+
+    
+    # Step 2: Pass the loaded dictionary to the Settings constructor.
+    # Pydantic will now use these values to populate the model fields.
+    return Settings(**env_vars)
+
