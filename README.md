@@ -11,6 +11,10 @@
  - [ ] Bot should load config from mongo itself? Not yet
  - [x] Reporting in bot
 
+## Report ideas
+* Calendar for each workout, choose with keyboard, all (excluding) or specific wo. Good backend function
+* Maybe training duration?
+
 # Gym Bot - Workout Logging Telegram Bot
 
 A Telegram bot for logging personal workout sessions. The bot is designed to be flexible, allowing users to dynamically combine pre-configured workouts into a single training session.
