@@ -1,5 +1,5 @@
 .venv
-.env.*
+config-*.yaml
 *.pyc
 __pycache__/
 mongo-data

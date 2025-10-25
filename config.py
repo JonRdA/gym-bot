@@ -1,70 +1,49 @@
-import os
 from pathlib import Path
+from typing import List, Literal
 
 import yaml
-from dotenv import dotenv_values
 from pydantic import BaseModel, computed_field
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# --- Load non-sensitive config from YAML ---
-CONFIG_FILE_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
-try:
-    with open(CONFIG_FILE_PATH, 'r') as f:
-        YAML_CONFIG = yaml.safe_load(f)
-except (FileNotFoundError, yaml.YAMLError):
-    YAML_CONFIG = {}
 
-# --- Pydantic Models for structured config ---
-class MongoSettings(BaseModel):
-    db_name: str = YAML_CONFIG.get('mongo', {}).get('db_name', 'workout_tracker')
-    trainings_collection: str = YAML_CONFIG.get('mongo', {}).get('trainings_collection', 'trainings')
-    config_collection: str = YAML_CONFIG.get('mongo', {}).get('config_collection', 'user_configurations')
-
-class BackupSettings(BaseModel):
-    directory: str = YAML_CONFIG.get('backup', {}).get('directory', 'trainings_backup')
-
-class ReportingSettings(BaseModel):
-    excluded_workouts: list[str] = YAML_CONFIG.get('reporting', {}).get('excluded_workouts', [])
-
-class Settings(BaseSettings):
-    """
-    Main settings class. It validates data from environment variables or passed-in values.
-    Intended to be instantiated ONLY by the create_settings factory.
-    """
-    model_config = SettingsConfigDict(extra='ignore') # Ignore extra fields passed in
-
-    telegram_bot_token: str
-    mongo_host: str = "localhost"
-    mongo_port: int = 27017
-    mongo_user: str | None = None
-    mongo_password: str | None = None
+class MongoConfig(BaseModel):
+    database: str
+    trainings_collection: str
+    config_collection: str
+    host: str
+    port: int
+    user: str
+    password: str
 
     @computed_field
     @property
-    def mongo_uri(self) -> str:
+    def uri(self) -> str:
         """Constructs the MongoDB connection URI from components."""
-        if self.mongo_user and self.mongo_password:
-            return f"mongodb://{self.mongo_user}:{self.mongo_password}@{self.mongo_host}:{self.mongo_port}/"
-        return f"mongodb://{self.mongo_host}:{self.mongo_port}/"
+        if self.user and self.password:
+            return f"mongodb://{self.user}:{self.password}@{self.host}:{self.port}/"
+        return f"mongodb://{self.host}:{self.port}/"
 
-    mongo: MongoSettings = MongoSettings()
-    backup: BackupSettings = BackupSettings()
-    reporting: ReportingSettings = ReportingSettings()
 
-def create_settings(env: str = 'local') -> Settings:
-    """
-    Settings Factory: Creates a Settings instance by explicitly loading the correct .env file.
-    This is the single point of entry for loading configuration.
-    """
-    env_file = Path(__file__).resolve().parent / f".env.{env}"
-    if not env_file.exists():
-        raise FileNotFoundError(f"Environment file not found for env '{env}': {env_file}")
+class BackupConfig(BaseModel):
+    directory: str
 
-    # Step 1: Manually load the specified .env file into a dictionary.
-    env_vars = {k.lower(): v for k, v in dotenv_values(env_file).items()}
+class BotConfig(BaseModel):
+    telegram_token: str
 
-    
-    # Step 2: Pass the loaded dictionary to the Settings constructor.
-    # Pydantic will now use these values to populate the model fields.
-    return Settings(**env_vars)
+class ReportingConfig(BaseModel):
+    excluded_workouts: List[str]
+
+
+class Settings(BaseModel):
+    mongo: MongoConfig
+    backup: BackupConfig
+    reporting: ReportingConfig
+    bot: BotConfig
+
+    @classmethod
+    def load(cls, environment: Literal["local", "raspy"]) -> "Settings":
+        """Load all configuration from a YAML file for the given environment."""
+        path = Path(f"config-{environment}.yaml")
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return cls(**data)
 

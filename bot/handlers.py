@@ -47,7 +47,7 @@ def _cleanup_user_data(context: CallbackContext):
 
 async def _ask_to_select_workout(update: Update, context: CallbackContext, config_service: TrainingConfigService):
     """Asks the user to add a workout to the training or finish."""
-    workout_names = config_service.get_workout_names()
+    workout_names = config_service.get_workout_names(user_id = update.effective_user.id)
     keyboard = create_workout_selection_keyboard(workout_names)
     
     message = (
@@ -152,7 +152,7 @@ async def received_duration(update: Update, context: CallbackContext, config_ser
         logger.debug("User %s set duration to %d minutes", update.effective_user.id, duration)
         return await _ask_to_select_workout(update, context, config_service)
     except (ValueError, TypeError):
-        logger.warning("User %s entered an invalid duration.", update.effective_user.id)
+        logger.error("User %s entered an invalid duration.", update.effective_user.id, exc_info=True)
         await update.message.reply_text(messages.ERROR_INVALID_DURATION)
         return AWAITING_DURATION
 
@@ -169,7 +169,7 @@ async def selected_workout_to_add(update: Update, context: CallbackContext, conf
     
     logger.info("User %s selected workout '%s'", query.from_user.id, workout_name_str)
     
-    workout_config = config_service.get_workout_details(workout_name)
+    workout_config = config_service.get_workout_details(update.effective_user.id, workout_name)
     if not workout_config or not workout_config.get('exercises'):
         await query.edit_message_text(messages.ERROR_NO_EXERCISES_CONFIGURED.format(workout_name=workout_name_str))
         return SELECTING_WORKOUT

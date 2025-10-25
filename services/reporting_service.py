@@ -2,11 +2,14 @@
 Service layer for handling all data processing for reporting.
 """
 import calendar
+import logging
 from datetime import datetime, timedelta
 
 from config import Settings
+from models.domain import Training, Workout, WoSet
 from services.mongo_service import MongoService
 
+logger = logging.getLogger(__name__)
 
 class ReportingService:
     """Handles logic for generating reports and summaries."""
@@ -20,7 +23,7 @@ class ReportingService:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         excluded = self.settings.reporting.excluded_workouts
-        return self.mongo_service.query_trainings_between_dates(
+        return self.mongo_service.query_between_dates(
             user_id, start_date, end_date, excluded_workouts=excluded
         )
 
@@ -31,11 +34,14 @@ class ReportingService:
         end_date = (start_date + timedelta(days=32)).replace(day=1)
         excluded = self.settings.reporting.excluded_workouts
         
-        projection = {"date": 1, "_id": 0}
-        trainings = self.mongo_service.query_trainings_between_dates(
-            user_id, start_date, end_date, excluded_workouts=excluded, projection=projection
+        # projection = {"date": 1, "_id": 1}
+        projection = None
+        trainings = self.mongo_service.query_between_dates_excluding_workouts(
+            user_id, start_date, end_date, excluded_workouts=excluded
         )
-        training_days = {doc["date"].day for doc in trainings}
+        print(trainings)
+        training_days = {training.date.day for training in trainings}
+        print(training_days)
 
         cal = calendar.TextCalendar(calendar.MONDAY)
         month_calendar = cal.formatmonth(now.year, now.month).split('\n')
@@ -55,29 +61,29 @@ class ReportingService:
         calendar_str += "`"
         return header + calendar_str
 
-    def format_training_summary(self, training: dict) -> str:
+    def format_training_summary(self, training: Training) -> str:
         """Formats a single training document into a human-readable summary."""
-        summary = f"*{training['date'].strftime('%Y-%m-%d')}* ({training['duration']} min)\n"
-        workout_names = ", ".join([w.get('name', 'N/A').title() for w in training.get('workouts', [])])
+        summary = f"{training.date.strftime('%Y-%m-%d')} ({training.duration_minutes} min)\n"
+        workout_names = ", ".join([w.name.title() for w in training.workouts])
         summary += f"_{workout_names}_"
         return summary
         
-    def format_training_details(self, training: dict) -> str:
+    def format_training_details(self, training: Training) -> str:
         """Formats a single training document into a detailed, human-readable summary."""
-        summary = f"*Training on {training['date'].strftime('%Y-%m-%d')}*\n"
-        summary += f"Duration: {training['duration']} minutes\n\n"
+        summary = f"*Training on {training.date.strftime('%Y-%m-%d')}*\n"
+        summary += f"Duration: {training.duration_minutes} minutes\n\n"
         
-        for workout in training.get('workouts', []):
-            completed_emoji = "✅" if workout.get('completed', False) else "❌"
-            summary += f"*{workout.get('name', 'N/A').title()}* {completed_emoji}\n"
+        for workout in training.workouts:
+            completed_emoji = "✅" if workout.completed  else "❌"
+            summary += f"*{workout.name.title()}* {completed_emoji}\n"
             
-            if not workout.get('exercises'):
+            if not workout.exercises:
                 summary += "  _(No exercises logged)_\n"
             else:
-                for exercise in workout.get('exercises', []):
-                    summary += f"  - {exercise.get('name', 'N/A').replace('_', ' ').title()}\n"
-                    for i, s in enumerate(exercise.get('sets', [])):
-                        metrics_str = ", ".join([f"{k}: {v}" for k, v in s.get('metrics', {}).items()])
+                for exercise in workout.exercises:
+                    summary += f"  - {exercise.name.replace('_', ' ').title()}\n"
+                    for i, s in enumerate(exercise.sets):
+                        metrics_str = ", ".join([f"{k}: {v}" for k, v in s.metrics.items()])
                         summary += f"    *Set {i+1}:* {metrics_str}\n"
         return summary
 

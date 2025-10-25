@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from config import create_settings
+from config import Settings
+from models.domain import Training
 from services.mongo_service import MongoService
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,14 +28,15 @@ def upload_single_file(filepath: str, mongo_service: MongoService) -> bool:
 
         with open(filepath, 'r', encoding='utf-8') as f:
             training_data = json.load(f)
+            training = Training(**training_data)
         
-        return mongo_service.update_training(training_id, training_data)
+        return mongo_service.update_training(training_id, training)
 
     except (IndexError, ValueError) as e:
-        logging.error("Skipping '%s'. Could not parse ObjectId. Details: %s", filename, e)
+        logging.error("Skipping '%s'. Could not parse ObjectId. Details: %s", filename, e, exc_info=True)
         return False
     except (json.JSONDecodeError, IOError) as e:
-        logging.error("Skipping '%s'. Error reading file. Details: %s", filename, e)
+        logging.error("Skipping '%s'. Error reading file. Details: %s", filename, e, exc_info=True)
         return False
 
 
@@ -57,8 +59,8 @@ def main():
 
     try:
         # The factory creates settings based on the command-line argument.
-        settings = create_settings(env=args.env)
-        logging.info("--> Targeting '%s' environment (host: %s)", args.env, settings.mongo_host)
+        settings = Settings.load(args.env)
+        logging.info("--> Targeting '%s' environment (host: %s)", args.env, settings.mongo.host)
 
         mongo_service = MongoService(settings)
         success_count = 0
@@ -92,7 +94,7 @@ def main():
         logging.info("❌ Failed:    %d", fail_count)
 
     except Exception as e:
-        logging.critical("An unexpected error occurred during the process: %s", e)
+        logging.critical("An unexpected error occurred during the process: %s", e, exc_info=True)
         sys.exit(1)
 
 

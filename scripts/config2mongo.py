@@ -26,7 +26,7 @@ load_dotenv()
 
 # --- Configuration ---
 MONGO_URI = os.getenv("MONGO_URI")
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")
+MONGO_database = os.getenv("MONGO_database")
 MONGO_CONFIG_COLLECTION = os.getenv("MONGO_CONFIG_COLLECTION")
 YAML_CONFIG_FILE = "training_config.yaml"
 
@@ -54,7 +54,7 @@ def load_and_insert_config(user_id: int):
 
     try:
         client = MongoClient(MONGO_URI)
-        db = client[MONGO_DB_NAME]
+        db = client[MONGO_database]
         collection = db[MONGO_CONFIG_COLLECTION]
 
         # Use update_one with upsert=True to either insert a new document

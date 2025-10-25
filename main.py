@@ -5,7 +5,7 @@ from telegram.ext import Application
 
 from bot.handlers import get_conversation_handler
 from bot.reporting_handlers import get_reporting_handlers
-from config import create_settings
+from config import Settings
 from services.mongo_service import MongoService
 from services.reporting_service import ReportingService
 from services.training_config_service import TrainingConfigService
@@ -29,9 +29,7 @@ def main() -> None:
     logger.info("Starting bot in '%s' environment.", env)
 
     try:
-        # --- Dependency Injection ---
-        # The factory creates the correct settings object for the environment.
-        settings = create_settings(env=env)
+        settings = Settings.load("local")
         
         mongo_service = MongoService(settings)
         # The reporting service needs settings for excluded workouts
@@ -47,11 +45,11 @@ def main() -> None:
         return
 
     # --- Create the Telegram Application ---
-    application = Application.builder().token(settings.telegram_bot_token).build()
+    application = Application.builder().token(settings.bot.telegram_token).build()
 
     # --- Register Handlers ---
     conv_handler = get_conversation_handler(config_service, mongo_service)
-    reporting_handlers = get_reporting_handlers(mongo_service, reporting_service, config_service)
+    reporting_handlers = get_reporting_handlers(mongo_service, reporting_service, config_service, settings)
     
     application.add_handler(conv_handler)
     for handler in reporting_handlers:
