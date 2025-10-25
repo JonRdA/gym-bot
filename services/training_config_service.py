@@ -5,15 +5,15 @@ import yaml
 from cachetools import TTLCache, cached
 
 from models.enums import WorkoutName
-from services.mongo_service import MongoService
+from services.mongo import MongoService
 
 logger = logging.getLogger(__name__)
 
 class TrainingConfigService:
     """Manages loading and accessing workout configurations with caching."""
 
-    def __init__(self, config_path: str, mongo_service: MongoService):
-        # self.mongo_service = mongo_service
+    def __init__(self, config_path: str, mongo: MongoService):
+        # self.mongo = mongo
         # Cache holds up to 100 users' configs, each for 1 hour (3600 seconds)
         # self._user_config_cache = TTLCache(maxsize=100, ttl=3600)
         
@@ -47,7 +47,7 @@ class TrainingConfigService:
     #     This method is cached, so the DB is only hit on a cache miss.
     #     """
     #     logger.debug("CACHE MISS: Fetching config from MongoDB for user %s", user_id)
-    #     return self.mongo_service.get_user_config(user_id)
+    #     return self.mongo.get_user_config(user_id)
 
     def get_exercise_details(self, user_id: int, exercise_name: str) -> dict | None:
         """Finds the details of a specific exercise across all of a user's workouts."""

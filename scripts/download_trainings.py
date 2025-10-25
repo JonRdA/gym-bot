@@ -19,7 +19,7 @@ from bson import ObjectId
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from config import Settings
-from services.mongo_service import MongoService
+from services.mongo import MongoService
 
 # --- Setup Logging ---
 logging.basicConfig( level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -35,7 +35,7 @@ def json_serializer(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
-def run_export(mongo_service: MongoService, settings: Settings) -> bool:
+def run_export(mongo: MongoService, settings: Settings) -> bool:
     """
     Fetches all trainings from the MongoService and saves them to individual files.
     """
@@ -51,7 +51,7 @@ def run_export(mongo_service: MongoService, settings: Settings) -> bool:
 
     logger.info("Fetching all training documents from database...")
     # This now returns a list of Pydantic Training models
-    documents = mongo_service.query_all_trainings()
+    documents = mongo.query_all_trainings()
     
     if not documents:
         logger.warning("No documents found to back up.")
@@ -116,10 +116,10 @@ def main():
         settings = Settings.load(env=args.env)
         logger.info(f"Targeting host: {settings.mongo.host}")
         
-        mongo_service = MongoService(settings)
+        mongo = MongoService(settings)
         
         # --- Run Business Logic ---
-        if run_export(mongo_service, settings):
+        if run_export(mongo, settings):
             logger.info("--- Export finished successfully ---")
         else:
             logger.warning("--- Export finished with errors ---")

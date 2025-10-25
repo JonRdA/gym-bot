@@ -7,35 +7,35 @@ from datetime import datetime, timedelta
 
 from config import Settings
 from models.domain import Training, Workout, WoSet
-from services.mongo_service import MongoService
+from services.mongo import MongoService
 
 logger = logging.getLogger(__name__)
 
 class ReportingService:
     """Handles logic for generating reports and summaries."""
 
-    def __init__(self, mongo_service: MongoService, settings: Settings):
-        self.mongo_service = mongo_service
+    def __init__(self, mongo: MongoService, settings: Settings):
+        self.mongo = mongo
         self.settings = settings
 
     def get_trainings_for_last_n_days(self, user_id: int, days: int) -> list:
         """Gets trainings for a user over the last N days."""
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
+        t1 = datetime.now()
+        t0 = t1 - timedelta(days=days)
         excluded = self.settings.reporting.excluded_workouts
-        return self.mongo_service.query_between_dates(
-            user_id, start_date, end_date, excluded_workouts=excluded
+        return self.mongo.query_between_dates(
+            user_id, t0, t1, excluded_workouts=excluded
         )
 
     def generate_activity_calendar(self, user_id: int) -> str | None:
         """Generates a text-based calendar of the current month with training days marked."""
         now = datetime.now()
-        start_date = now.replace(day=1)
-        end_date = (start_date + timedelta(days=32)).replace(day=1)
+        t0 = now.replace(day=1)
+        t1 = (t0 + timedelta(days=32)).replace(day=1)
         excluded = self.settings.reporting.excluded_workouts
         
-        trainings = self.mongo_service.query_between_dates_excluding_workouts(
-            user_id, start_date, end_date, excluded_workouts=excluded
+        trainings = self.mongo.query_between_dates_excluding_workouts(
+            user_id, t0, t1, excluded_workouts=excluded
         )
         training_days = {training.date.day for training in trainings}
 

@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 from config import Settings
-from services.mongo_service import MongoService
+from services.mongo import MongoService
 from services.reporting_service import ReportingService
 from services.training_config_service import TrainingConfigService
 
@@ -49,11 +49,11 @@ async def view_sessions_start(update: Update, context: CallbackContext, config_s
         months_back = 0
     
     # Calculate date range
-    end_date = datetime.now()
-    start_date = (end_date - relativedelta(months=months_back)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    t1 = datetime.now()
+    t0 = (t1 - relativedelta(months=months_back)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
-    context.user_data['sessions_start_date'] = start_date
-    context.user_data['sessions_end_date'] = end_date
+    context.user_data['sessions_t0'] = t0
+    context.user_data['sessions_t1'] = t1
     
     # Get available workouts to build the filter
     workout_names = config_service.get_workout_names(user_id)
@@ -68,7 +68,7 @@ async def view_sessions_start(update: Update, context: CallbackContext, config_s
     return SELECT_WORKOUT_FILTER
 
 
-async def list_sessions_after_filter(update: Update, context: CallbackContext, mongo_service: MongoService, reporting_service: ReportingService, settings: Settings):
+async def list_sessions_after_filter(update: Update, context: CallbackContext, mongo: MongoService, reporting_service: ReportingService, settings: Settings):
     """Handles the workout filter selection and lists the matching sessions."""
     query = update.callback_query
     await query.answer()
@@ -76,15 +76,15 @@ async def list_sessions_after_filter(update: Update, context: CallbackContext, m
     user_id = query.from_user.id
     filter_choice = query.data.split('_')[1]
     
-    start_date = context.user_data['sessions_start_date']
-    end_date = context.user_data['sessions_end_date']
+    t0 = context.user_data['sessions_t0']
+    t1 = context.user_data['sessions_t1']
     
     required_workout = None if filter_choice == 'all' else filter_choice
     
-    trainings = mongo_service.query_between_dates_including_workouts(
+    trainings = mongo.query_between_dates_including_workouts(
         user_id=user_id,
-        start_date=start_date,
-        end_date=end_date,
+        t0=t0,
+        t1=t1,
         required_workouts=[required_workout]
     )
     
@@ -104,13 +104,13 @@ async def list_sessions_after_filter(update: Update, context: CallbackContext, m
     return SELECT_SESSION
 
 
-async def select_session_to_view(update: Update, context: CallbackContext, mongo_service: MongoService, reporting_service: ReportingService):
+async def select_session_to_view(update: Update, context: CallbackContext, mongo: MongoService, reporting_service: ReportingService):
     """Handles user's selection and displays the detailed summary."""
     query = update.callback_query
     await query.answer()
     training_id = query.data
     
-    training = mongo_service.get_training_by_id(training_id)
+    training = mongo.get_training_by_id(training_id)
     
     if not training:
         await query.edit_message_text("Sorry, I couldn't find that training session.")
@@ -120,10 +120,10 @@ async def select_session_to_view(update: Update, context: CallbackContext, mongo
     await query.edit_message_text(summary, parse_mode='Markdown')
     
     # Clean up user_data
-    if 'sessions_start_date' in context.user_data:
-        del context.user_data['sessions_start_date']
-    if 'sessions_end_date' in context.user_data:
-        del context.user_data['sessions_end_date']
+    if 'sessions_t0' in context.user_data:
+        del context.user_data['sessions_t0']
+    if 'sessions_t1' in context.user_data:
+        del context.user_data['sessions_t1']
         
     return ConversationHandler.END
 
@@ -132,15 +132,15 @@ async def cancel_view(update: Update, context: CallbackContext):
     """Cancels the view_sessions conversation."""
     await update.effective_message.reply_text("Cancelled viewing sessions.")
     # Clean up user_data
-    if 'sessions_start_date' in context.user_data:
-        del context.user_data['sessions_start_date']
-    if 'sessions_end_date' in context.user_data:
-        del context.user_data['sessions_end_date']
+    if 'sessions_t0' in context.user_data:
+        del context.user_data['sessions_t0']
+    if 'sessions_t1' in context.user_data:
+        del context.user_data['sessions_t1']
     return ConversationHandler.END
 
 
 def get_reporting_handlers(
-    mongo_service: MongoService, 
+    mongo: MongoService, 
     reporting_service: ReportingService, 
     config_service: TrainingConfigService,
     settings: Settings
@@ -150,8 +150,8 @@ def get_reporting_handlers(
     view_sessions_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("view_sessions", lambda u, c: view_sessions_start(u, c, config_service=config_service))],
         states={
-            SELECT_WORKOUT_FILTER: [CallbackQueryHandler(lambda u, c: list_sessions_after_filter(u, c, mongo_service=mongo_service, reporting_service=reporting_service, settings=settings), pattern="^filter_")],
-            SELECT_SESSION: [CallbackQueryHandler(lambda u, c: select_session_to_view(u, c, mongo_service=mongo_service, reporting_service=reporting_service))],
+            SELECT_WORKOUT_FILTER: [CallbackQueryHandler(lambda u, c: list_sessions_after_filter(u, c, mongo=mongo, reporting_service=reporting_service, settings=settings), pattern="^filter_")],
+            SELECT_SESSION: [CallbackQueryHandler(lambda u, c: select_session_to_view(u, c, mongo=mongo, reporting_service=reporting_service))],
         },
         fallbacks=[CommandHandler("cancel", cancel_view)]
     )

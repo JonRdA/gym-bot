@@ -12,13 +12,13 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from config import Settings
 from models.domain import Training
-from services.mongo_service import MongoService
+from services.mongo import MongoService
 
 logging.basicConfig( level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
-def upload_single_file(filepath: str, mongo_service: MongoService) -> bool:
+def upload_single_file(filepath: str, mongo: MongoService) -> bool:
     """Reads a single JSON file and upserts it to MongoDB."""
     logger.info("Processing file: %s", filepath)
     try:
@@ -31,7 +31,7 @@ def upload_single_file(filepath: str, mongo_service: MongoService) -> bool:
             training_data = json.load(f)
             training = Training(**training_data)
         
-        return mongo_service.update_training(training_id, training)
+        return mongo.update_training(training_id, training)
 
     except (IndexError, ValueError) as e:
         logger.error("Skipping '%s'. Could not parse ObjectId. Details: %s", filename, e, exc_info=True)
@@ -63,13 +63,13 @@ def main():
         settings = Settings.load(args.env)
         logger.info("--> Targeting '%s' environment (host: %s)", args.env, settings.mongo.host)
 
-        mongo_service = MongoService(settings)
+        mongo = MongoService(settings)
         success_count = 0
         fail_count = 0
 
         if os.path.isfile(input_path):
             if input_path.endswith('.json'):
-                if upload_single_file(input_path, mongo_service):
+                if upload_single_file(input_path, mongo):
                     success_count += 1
                 else:
                     fail_count += 1
@@ -82,7 +82,7 @@ def main():
             for filename in os.listdir(input_path):
                 if filename.endswith('.json'):
                     filepath = os.path.join(input_path, filename)
-                    if upload_single_file(filepath, mongo_service):
+                    if upload_single_file(filepath, mongo):
                         success_count += 1
                     else:
                         fail_count += 1

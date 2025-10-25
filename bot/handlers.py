@@ -17,7 +17,7 @@ from bot import messages
 from bot.keyboards import create_completion_keyboard, create_workout_selection_keyboard
 from models.domain import Exercise, Training, Workout, WoSet
 from models.enums import ExerciseName, Metric, WorkoutName
-from services.mongo_service import MongoService
+from services.mongo import MongoService
 from services.training_config_service import TrainingConfigService
 
 logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ async def selected_workout_to_add(update: Update, context: CallbackContext, conf
     return AWAITING_WORKOUT_COMPLETION
 
 
-async def finish_training_command(update: Update, context: CallbackContext, mongo_service: MongoService,
+async def finish_training_command(update: Update, context: CallbackContext, mongo: MongoService,
         config_service: TrainingConfigService):
     """Handles the user finishing the training log."""
     query = update.callback_query
@@ -194,7 +194,7 @@ async def finish_training_command(update: Update, context: CallbackContext, mong
     await query.edit_message_text("Saving your training session...")
     
     training = context.user_data.get('training_obj')
-    if mongo_service.save_training(training):
+    if mongo.save_training(training):
         await query.edit_message_text(messages.SAVE_SUCCESS)
     else:
         await query.edit_message_text(messages.SAVE_ERROR)
@@ -310,13 +310,13 @@ async def rest_time_or_set_router(update: Update, context: CallbackContext):
         return await received_set(update, context)
 
 
-def get_conversation_handler(config_service: TrainingConfigService, mongo_service: MongoService) -> ConversationHandler:
+def get_conversation_handler(config_service: TrainingConfigService, mongo: MongoService) -> ConversationHandler:
     """Creates and returns the main ConversationHandler for the bot."""
     
     # --- Handler setup using lambdas for dependency injection ---
     received_duration_handler = lambda u, c: received_duration(u, c, config_service=config_service)
     selected_workout_handler = lambda u, c: selected_workout_to_add(u, c, config_service=config_service)
-    finish_training_handler = lambda u, c: finish_training_command(u, c, mongo_service=mongo_service, config_service=config_service)
+    finish_training_handler = lambda u, c: finish_training_command(u, c, mongo=mongo, config_service=config_service)
     done_exercise_handler = lambda u, c: handle_next_exercise(u, c, config_service=config_service)
 
     return ConversationHandler(

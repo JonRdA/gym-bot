@@ -1,0 +1,17 @@
+bot:
+  telegram_token: "your_telegram_bot_token"
+
+mongo:
+  database: "gym-bot"
+  trainings_collection: "trainings"
+  config_collection: "configurations"
+  host: "localhost"
+  port: 27017
+  user: "yourUser"
+  password: "yourMongoPass"
+
+backup:
+  directory: "trainings_backup"
+
+reporting:
+  excluded_workouts: ["home"]
