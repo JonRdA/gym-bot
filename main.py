@@ -26,7 +26,7 @@ def main() -> None:
     logger.info("Starting bot in '%s' environment.", env)
 
     try:
-        settings = Settings.load("local")
+        settings = Settings.load(env)
         
         mongo = MongoService(settings)
         # The reporting service needs settings for excluded workouts
