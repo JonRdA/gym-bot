@@ -320,7 +320,7 @@ def get_conversation_handler(config_service: TrainingConfigService, mongo: Mongo
     done_exercise_handler = lambda u, c: handle_next_exercise(u, c, config_service=config_service)
 
     return ConversationHandler(
-        entry_points=[CommandHandler("add_training", start_logger_command)],
+        entry_points=[CommandHandler("add", start_logger_command)],
         states={
             AWAITING_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_date)],
             AWAITING_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_duration_handler)],

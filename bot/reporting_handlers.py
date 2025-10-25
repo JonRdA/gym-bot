@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 SELECT_WORKOUT_FILTER, SELECT_SESSION = range(2)
 
 
-async def activity_calendar_command(update: Update, context: CallbackContext, reporting_service: ReportingService):
+async def calendar_command(update: Update, context: CallbackContext, reporting_service: ReportingService):
     """Displays a calendar of the current month showing training days."""
     user_id = update.effective_user.id
     try:
@@ -38,7 +38,7 @@ async def activity_calendar_command(update: Update, context: CallbackContext, re
         await update.message.reply_text("Sorry, I couldn't generate your activity calendar right now.")
 
 
-async def view_sessions_start(update: Update, context: CallbackContext, config_service: TrainingConfigService):
+async def view_training_start(update: Update, context: CallbackContext, config_service: TrainingConfigService):
     """Starts the /view_sessions convo by asking for a workout filter."""
     user_id = update.effective_user.id
     logger.info("User %s started /view_sessions.", user_id)
@@ -148,7 +148,7 @@ def get_reporting_handlers(
     """Creates and returns all reporting-related handlers."""
     
     view_sessions_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("view_sessions", lambda u, c: view_sessions_start(u, c, config_service=config_service))],
+        entry_points=[CommandHandler("view_training", lambda u, c: view_training_start(u, c, config_service=config_service))],
         states={
             SELECT_WORKOUT_FILTER: [CallbackQueryHandler(lambda u, c: list_sessions_after_filter(u, c, mongo=mongo, reporting_service=reporting_service, settings=settings), pattern="^filter_")],
             SELECT_SESSION: [CallbackQueryHandler(lambda u, c: select_session_to_view(u, c, mongo=mongo, reporting_service=reporting_service))],
@@ -157,7 +157,7 @@ def get_reporting_handlers(
     )
     
     return [
-        CommandHandler("activity_calendar", lambda u, c: activity_calendar_command(u, c, reporting_service=reporting_service)),
+        CommandHandler("calendar", lambda u, c: calendar_command(u, c, reporting_service=reporting_service)),
         view_sessions_conv_handler
     ]
 

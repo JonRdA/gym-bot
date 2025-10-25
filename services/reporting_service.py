@@ -65,23 +65,30 @@ class ReportingService:
         return summary
         
     def format_training_details(self, training: Training) -> str:
-        """Formats a single training document into a detailed, human-readable summary."""
-        summary = f"*Training on {training.date.strftime('%Y-%m-%d')}*\n"
-        summary += f"Duration: {training.duration_minutes} minutes\n\n"
-        
+        """Formats a training session into a compact, stylish summary."""
+        summary = f"🏋️ *{training.date.strftime('%Y-%m-%d')}*\n"
+        summary += f"⏱️ {training.duration_minutes} min\n\n"
+
         for workout in training.workouts:
-            completed_emoji = "✅" if workout.completed  else "❌"
-            summary += f"*{workout.name.title()}* {completed_emoji}\n"
-            
+            status = "✅" if workout.completed else "❌"
+            summary += f"*{workout.name.title()}* {status}\n"
+
             if not workout.exercises:
-                summary += "  _(No exercises logged)_\n"
-            else:
-                for exercise in workout.exercises:
-                    summary += f"  - {exercise.name.replace('_', ' ').title()}\n"
-                    for i, s in enumerate(exercise.sets):
-                        metrics_str = ", ".join([f"{k}: {v}" for k, v in s.metrics.items()])
-                        summary += f"    *Set {i+1}:* {metrics_str}\n"
-        return summary
+                summary += "  _No exercises logged_\n"
+                continue
+
+            for exercise in workout.exercises:
+                metrics_format = ", ".join(exercise.sets[0].metrics.keys())
+                summary += f"  • *{exercise.name.replace('_', ' ').title()}* ({metrics_format})\n"
+
+                for i, s in enumerate(exercise.sets, start=1):
+                    values = ", ".join(str(v) for v in s.metrics.values())
+                    summary += f"       #{i} → {values}\n"
+
+            summary += "\n"
+
+        return summary.strip()
+
 
     def get_available_report_types(self, exercise_config: dict) -> list[tuple[str, str]]:
         """Determines which report types are available based on an exercise's metrics."""

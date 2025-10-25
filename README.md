@@ -5,7 +5,7 @@
  - [x] It is not asking completed
  - [x] Download upload scripts should use loggers
  - [x] Down up scripts should use mongo service
- - [ ] Down up scripts must use other settings for mongo service, raspy ones, another init?
+ - [x] Down up scripts must use other settings for mongo service, raspy ones, another init?
  - [x] Merge upload download scripts?
  - [ ] Eliminate enums for names
  - [ ] Bot should load config from mongo itself? Not yet
@@ -42,3 +42,9 @@ An index acts like a table of contents for your database collection. Without it,
 Why is the number 1 used in user_id: 1?
 
 The number 1 specifies that the index should be sorted in ascending order for that field. A value of -1 would specify descending order. For this type of query, the direction doesn't significantly impact performance, but 1 is the standard convention for ascending order.
+
+# BotFather commands
+add - Add new training
+calendar - View trainings calendar
+view_training - View complete training
+cancel - Cancel current conversation
