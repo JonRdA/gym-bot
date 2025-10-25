@@ -40,9 +40,9 @@ class Settings(BaseModel):
     bot: BotConfig
 
     @classmethod
-    def load(cls, environment: Literal["local", "raspy"]) -> "Settings":
+    def load(cls, env: Literal["local", "raspy"]) -> "Settings":
         """Load all configuration from a YAML file for the given environment."""
-        path = Path(f"config-{environment}.yaml")
+        path = Path(f"config-{env}.yaml")
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return cls(**data)

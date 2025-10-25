@@ -3,3 +3,4 @@ config-*.yaml
 *.pyc
 __pycache__/
 mongo-data
+.vscode

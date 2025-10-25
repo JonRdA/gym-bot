@@ -1,30 +1,9 @@
 {
-  "_id": "68f0a162c18a87755f2cefce",
+  "_id": "68f9e4ff3bd67897d7774f9b",
   "user_id": 5947426856,
-  "date": "2025-10-16T00:00:00",
-  "duration": 54,
+  "date": "2025-10-23T00:00:00",
+  "duration": 55,
   "workouts": [
-    {
-      "name": "handstand",
-      "completed": false,
-      "exercises": [
-        {
-          "name": "chest2wall",
-          "sets": [
-            {
-              "metrics": {
-                "time": 20
-              }
-            },
-            {
-              "metrics": {
-                "time": 20
-              }
-            }
-          ]
-        }
-      ]
-    },
     {
       "name": "lower",
       "completed": false,
@@ -66,12 +45,6 @@
                 "reps": 5,
                 "knee2floor": 16
               }
-            },
-            {
-              "metrics": {
-                "reps": 5,
-                "knee2floor": 16
-              }
             }
           ]
         },
@@ -80,20 +53,53 @@
           "sets": [
             {
               "metrics": {
-                "reps": 7,
+                "reps": 10,
                 "weight": 22.5
               }
             },
             {
               "metrics": {
-                "reps": 7,
+                "reps": 10,
                 "weight": 22.5
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "handstand",
+      "completed": false,
+      "exercises": [
+        {
+          "name": "bridge",
+          "sets": [
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
               }
             },
             {
               "metrics": {
-                "reps": 7,
-                "weight": 22.5
+                "time": 10,
+                "feet2floor": 21
+              }
+            },
+            {
+              "metrics": {
+                "time": 10,
+                "feet2floor": 21
+              }
+            }
+          ]
+        },
+        {
+          "name": "chest2wall",
+          "sets": [
+            {
+              "metrics": {
+                "time": 25
               }
             }
           ]

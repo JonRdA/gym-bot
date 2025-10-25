@@ -34,14 +34,10 @@ class ReportingService:
         end_date = (start_date + timedelta(days=32)).replace(day=1)
         excluded = self.settings.reporting.excluded_workouts
         
-        # projection = {"date": 1, "_id": 1}
-        projection = None
         trainings = self.mongo_service.query_between_dates_excluding_workouts(
             user_id, start_date, end_date, excluded_workouts=excluded
         )
-        print(trainings)
         training_days = {training.date.day for training in trainings}
-        print(training_days)
 
         cal = calendar.TextCalendar(calendar.MONDAY)
         month_calendar = cal.formatmonth(now.year, now.month).split('\n')

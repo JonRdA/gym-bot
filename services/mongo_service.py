@@ -63,7 +63,7 @@ class MongoService:
         try:
             data = training.model_dump(mode="python", by_alias=True)
             result = self.trainings.replace_one(
-                {"_id": ObjectId(training_id)},
+                {"_id": training.mongo_id},
                 data,
                 upsert=True
             )
@@ -78,56 +78,38 @@ class MongoService:
     # ------------------------------
     # Query Operations
     # ------------------------------
-    def query( self, user_id: int, projection: Optional[Dict[str, int]] = None,) -> List[Dict[str, Any]]:
+    def query_all_trainings(self, projection: Optional[Dict[str, int]] = None,) -> List[Training]:
         """Return trainings between two dates."""
-        query = {"user_id": user_id}
+        return self._execute_query(None, {}, projection)
+
+    def query_between_dates(self, user_id: int, t0: datetime, t1: datetime,
+            projection: Optional[Dict[str, int]] = None,) -> List[Training]:
+        """Return trainings between two dates."""
+        query = self._build_base_query(user_id, t0, t1)
         return self._execute_query(user_id, query, projection)
 
-    def query_between_dates(
-        self,
-        user_id: int,
-        start_date: datetime,
-        end_date: datetime,
-        projection: Optional[Dict[str, int]] = None,
-    ) -> List[Dict[str, Any]]:
-        """Return trainings between two dates."""
-        query = self._build_base_query(user_id, start_date, end_date)
-        return self._execute_query(user_id, query, projection)
-
-    def query_between_dates_excluding_workouts(
-        self,
-        user_id: int,
-        start_date: datetime,
-        end_date: datetime,
-        excluded_workouts: List[str],
-        projection: Optional[Dict[str, int]] = None,
-    ) -> List[Dict[str, Any]]:
+    def query_between_dates_excluding_workouts(self, user_id: int, t0: datetime, t1: datetime,
+            excluded_workouts: List[str], projection: Optional[Dict[str, int]] = None,) -> List[Training]:
         """Return trainings between dates excluding workouts."""
-        query = self._build_base_query(user_id, start_date, end_date)
+        query = self._build_base_query(user_id, t0, t1)
         query["workouts.name"] = {"$nin": excluded_workouts}
         return self._execute_query(user_id, query, projection)
 
-    def query_between_dates_including_workouts(
-        self,
-        user_id: int,
-        start_date: datetime,
-        end_date: datetime,
-        required_workouts: List[str],
-        projection: Optional[Dict[str, int]] = None,
-    ) -> List[Dict[str, Any]]:
+    def query_between_dates_including_workouts(self, user_id: int, t0: datetime, t1: datetime,
+            required_workouts: List[str], projection: Optional[Dict[str, int]] = None,) -> List[Training]:
         """Return trainings between dates including workouts."""
-        query = self._build_base_query(user_id, start_date, end_date)
+        query = self._build_base_query(user_id, t0, t1)
         query["workouts.name"] = {"$in": required_workouts}
         return self._execute_query(user_id, query, projection)
 
     # ------------------------------
     # Internal Helpers
     # ------------------------------
-    def _build_base_query(self, user_id: int, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+    def _build_base_query(self, user_id: int, t0: datetime, t1: datetime) -> Dict[str, Any]:
         """Build base user/date query."""
-        start_date = self._ensure_utc(start_date)
-        end_date = self._ensure_utc(end_date)
-        query = {"user_id": user_id, "date": {"$gte": start_date, "$lte": end_date}}
+        t0 = self._ensure_utc(t0)
+        t1 = self._ensure_utc(t1)
+        query = {"user_id": user_id, "date": {"$gte": t0, "$lte": t1}}
         logger.debug("Base query built: %s", query)
         return query
 
@@ -136,10 +118,6 @@ class MongoService:
         logger.debug("Executing Mongo query for user=%s: %s", user_id, query)
         try:
             cursor: Cursor = self.trainings.find(query, projection).sort("date", -1)
-            # for doc in cursor:
-            #     print("\n\n\n\n")
-            #     a = Training(**doc)
-            #     print(a)
             results = [Training(**doc) for doc in cursor]
             logger.debug("Query returned %d trainings for user=%s", len(results), user_id)
             return results

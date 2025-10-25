@@ -4,7 +4,15 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    WithJsonSchema,
+)
+from typing_extensions import Annotated
 
 from models.enums import ExerciseName, Metric, WorkoutName
 
@@ -27,10 +35,35 @@ class Workout(BaseModel):
     completed: bool
     exercises: List[Exercise] = []
 
+def validate_objectid(value: Any) -> ObjectId:
+    """Custom validator to convert str or bytes to ObjectId."""
+    if isinstance(value, ObjectId):
+        return value
+    if isinstance(value, (str, bytes)):
+        try:
+            return ObjectId(value)
+        except Exception:
+            pass  # Let Pydantic handle the final validation error
+    
+    # If the value is None (for Optional fields), return it
+    if value is None:
+        return value
+    raise ValueError(f"Invalid ObjectId: {value}")
+
+# 💡 Pydantic V2 Recommended way to create a custom type
+# Annotated[Type, Validator]
+PyObjectId = Annotated[
+    ObjectId,
+    BeforeValidator(validate_objectid),
+    # Optional: Add serializer to convert it back to a string when exporting
+    PlainSerializer(lambda v: str(v), return_type=str, when_used='json'),
+    # Optional: For OpenAPI schema generation
+    WithJsonSchema({"type": "string", "title": "PyObjectId"}, mode="serialization"),
+]
 
 class Training(BaseModel):
     """The top-level document for a completed training session."""
-    mongo_id: Optional[ObjectId] = Field(None, alias="_id")
+    mongo_id: Optional[PyObjectId] = Field(None, alias="_id")
     user_id: int
     date: datetime
     duration_minutes: int = Field(alias="duration")
@@ -52,19 +85,3 @@ class Training(BaseModel):
     def __get_validators__(cls):
         yield cls.validate_objectid
 
-    @classmethod
-    def validate_objectid(cls, value: Any) -> ObjectId:
-        """Custom validator to convert str or bytes to ObjectId."""
-        if isinstance(value, ObjectId):
-            return value
-        if isinstance(value, (str, bytes)):
-            try:
-                return ObjectId(value)
-            except Exception:
-                pass  # Let Pydantic handle the final validation error
-        
-        # If the value is None (for Optional fields), return it
-        if value is None:
-            return value
-            
-        raise ValueError(f"Invalid ObjectId: {value}")
