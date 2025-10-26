@@ -7,6 +7,8 @@
  - [x] Down up scripts should use mongo service
  - [x] Down up scripts must use other settings for mongo service, raspy ones, another init?
  - [x] Merge upload download scripts?
+ - [ ] View training must be different, list trainings and select. Nothing else.
+ - [ ] Calendar must be different, per workout or all (all except home)
  - [ ] Eliminate enums for names
  - [ ] Bot should load config from mongo itself? Not yet
  - [x] Reporting in bot
