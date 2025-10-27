@@ -2,7 +2,7 @@
 Handlers for all reporting-related commands.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from dateutil.relativedelta import relativedelta
@@ -14,6 +14,8 @@ from telegram.ext import (
     ConversationHandler,
 )
 
+# Assuming keyboards.py is in the same directory or accessible
+from bot.keyboards import chunk_list
 from config import Settings
 from services.mongo import MongoService
 from services.reporting_service import ReportingService
@@ -23,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 # --- Conversation states ---
 SELECT_CALENDAR_WORKOUT = 0
-SELECT_WORKOUT_FILTER, SELECT_SESSION = range(1, 3) # Renumbered
+# State for view_training
+SELECT_SESSION = 1 
 
 
 async def calendar_start(update: Update, context: CallbackContext, config_service: TrainingConfigService):
@@ -43,11 +46,22 @@ async def calendar_start(update: Update, context: CallbackContext, config_servic
     
     # Get available workouts to build the filter
     workout_names = config_service.get_workout_names(user_id)
-    keyboard = []
-    for name in workout_names:
-        # Use a 'cal_' prefix to avoid conflicts with other handlers
-        keyboard.append([InlineKeyboardButton(name.title(), callback_data=f"cal_{name}")])
-    keyboard.append([InlineKeyboardButton("All Workouts", callback_data="cal_all")])
+    
+    # Create buttons with lowercase text
+    buttons = [
+        InlineKeyboardButton(
+            name.lower(), 
+            callback_data=f"cal_{name}"
+        ) 
+        for name in workout_names
+    ]
+    
+    # Group into rows of 3
+    keyboard = chunk_list(buttons, 3)
+    # Add "All Workouts" button on its own row at the end
+    keyboard.append(
+        [InlineKeyboardButton("All Workouts", callback_data="cal_all")]
+    )
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
@@ -109,84 +123,57 @@ async def display_calendar_for_workout(update: Update, context: CallbackContext,
     return ConversationHandler.END
 
 
-async def cancel_calendar(update: Update, context: CallbackContext):
-    """Cancels the calendar generation conversation."""
+async def view_training_start(update: Update, context: CallbackContext, mongo: MongoService):
+    """Starts /view_training: parses days, fetches sessions, and shows them in a keyboard."""
     user_id = update.effective_user.id
-    logger.info("User %s cancelled calendar generation.", user_id)
-    await update.effective_message.reply_text("Cancelled calendar generation.")
-    # Clean up user_data
-    if 'calendar_months' in context.user_data:
-        del context.user_data['calendar_months']
-    return ConversationHandler.END
-
-
-async def view_training_start(update: Update, context: CallbackContext, config_service: TrainingConfigService):
-    """Starts the /view_sessions convo by asking for a workout filter."""
-    user_id = update.effective_user.id
-    logger.info("User %s started /view_sessions.", user_id)
+    logger.info("User %s started /view_training.", user_id)
     
     try:
-        months_back = int(context.args[0]) if context.args else 0
+        days_back = int(context.args[0]) if context.args else 10
     except (ValueError, IndexError):
-        months_back = 0
+        days_back = 10
+    
+    if days_back < 1:
+        days_back = 1
     
     # Calculate date range
     t1 = datetime.now()
-    t0 = (t1 - relativedelta(months=months_back)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    t0 = t1 - timedelta(days=days_back)
     
-    context.user_data['sessions_t0'] = t0
-    context.user_data['sessions_t1'] = t1
-    
-    # Get available workouts to build the filter
-    workout_names = config_service.get_workout_names(user_id)
-    keyboard = []
-    for name in workout_names:
-        keyboard.append([InlineKeyboardButton(name.title(), callback_data=f"filter_{name}")])
-    keyboard.append([InlineKeyboardButton("All Workouts", callback_data="filter_all")])
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Which workout type would you like to see?", reply_markup=reply_markup)
-    
-    return SELECT_WORKOUT_FILTER
-
-
-async def list_sessions_after_filter(update: Update, context: CallbackContext, mongo: MongoService, reporting_service: ReportingService, settings: Settings):
-    """Handles the workout filter selection and lists the matching sessions."""
-    query = update.callback_query
-    await query.answer()
-    
-    user_id = query.from_user.id
-    filter_choice = query.data.split('_')[1]
-    
-    t0 = context.user_data['sessions_t0']
-    t1 = context.user_data['sessions_t1']
-    
-    # This logic is different from the calendar's "All"
-    # This one *includes* all, calendar *excludes* some.
-    if filter_choice == 'all':
-        trainings = mongo.query_between_dates(
-            user_id=user_id, t0=t0, t1=t1
-        )
-    else:
-        trainings = mongo.query_between_dates_including_workouts(
-            user_id=user_id,
-            t0=t0,
-            t1=t1,
-            required_workouts=[filter_choice]
-        )
+    # Query for all trainings in the period
+    trainings = mongo.query_between_dates(
+        user_id=user_id,
+        t0=t0,
+        t1=t1,
+    )
     
     if not trainings:
-        await query.edit_message_text(f"No '{filter_choice}' sessions found in the selected period.")
+        await update.message.reply_text(
+            f"No sessions found in the last {days_back} days."
+        )
         return ConversationHandler.END
 
     keyboard = []
     for training in trainings:
-        summary_line = reporting_service.format_training_summary(training).split('\n')[0]
+        # Format: "DD-MM"
+        date_str = training.date.strftime('%y-%m-%d')
+        # Format: "(workout1, workout2)" in lowercase
+        workout_names_str = ", ".join(
+            [w.name.lower() for w in training.workouts]
+        )
+        
+        summary_line = f"{date_str}:  ({workout_names_str})"
         callback_data = str(training.mongo_id)
-        keyboard.append([InlineKeyboardButton(summary_line, callback_data=callback_data)])
+        
+        keyboard.append(
+            [InlineKeyboardButton(summary_line, callback_data=callback_data)]
+        )
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text("Which of these sessions would you like to view?", reply_markup=reply_markup)
+    await update.message.reply_text(
+        f"Here are your sessions from the last {days_back} days:", 
+        reply_markup=reply_markup
+    )
     
     return SELECT_SESSION
 
@@ -197,6 +184,13 @@ async def select_session_to_view(update: Update, context: CallbackContext, mongo
     await query.answer()
     training_id = query.data
     
+    # Check if data is a valid Mongo ID to avoid processing other callbacks
+    if not training_id or len(training_id) != 24:
+        logger.warning("Invalid callback data received in select_session_to_view: %s", training_id)
+        await query.edit_message_text("An unexpected error occurred. Please try again.")
+        return ConversationHandler.END
+
+    logger.debug("User %s selected training_id: %s", query.from_user.id, training_id)
     training = mongo.get_training_by_id(training_id)
     
     if not training:
@@ -205,24 +199,15 @@ async def select_session_to_view(update: Update, context: CallbackContext, mongo
 
     summary = reporting_service.format_training_details(training)
     await query.edit_message_text(summary, parse_mode='Markdown')
-    
-    # Clean up user_data
-    if 'sessions_t0' in context.user_data:
-        del context.user_data['sessions_t0']
-    if 'sessions_t1' in context.user_data:
-        del context.user_data['sessions_t1']
         
     return ConversationHandler.END
 
 
-async def cancel_view(update: Update, context: CallbackContext):
-    """Cancels the view_sessions conversation."""
-    await update.effective_message.reply_text("Cancelled viewing sessions.")
-    # Clean up user_data
-    if 'sessions_t0' in context.user_data:
-        del context.user_data['sessions_t0']
-    if 'sessions_t1' in context.user_data:
-        del context.user_data['sessions_t1']
+async def cancel_conversation(update: Update, context: CallbackContext):
+    """Cancels the ongoing conversation."""
+    user_id = update.effective_user.id
+    logger.info("User %s cancelled ongoing conversation.", user_id)
+    await update.effective_message.reply_text("Cancelled conversation.")
     return ConversationHandler.END
 
 
@@ -245,18 +230,24 @@ def get_reporting_handlers(
                 )
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_calendar)],
+        fallbacks=[CommandHandler("cancel", cancel_conversation)],
         conversation_timeout=300  # 5 minutes
     )
     
+    # Refactored ConversationHandler for /view_training
     view_sessions_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("view_training", lambda u, c: view_training_start(u, c, config_service=config_service))],
+        entry_points=[
+            CommandHandler("view_training", lambda u, c: view_training_start(u, c, mongo=mongo))
+        ],
         states={
-            SELECT_WORKOUT_FILTER: [CallbackQueryHandler(lambda u, c: list_sessions_after_filter(u, c, mongo=mongo, reporting_service=reporting_service, settings=settings), pattern="^filter_")],
-            SELECT_SESSION: [CallbackQueryHandler(lambda u, c: select_session_to_view(u, c, mongo=mongo, reporting_service=reporting_service))],
+            # State to handle the button press with the training_id
+            SELECT_SESSION: [
+                CallbackQueryHandler(
+                    lambda u, c: select_session_to_view(u, c, mongo=mongo, reporting_service=reporting_service)
+                )
+            ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_view)],
-        conversation_timeout=300 # 5 minutes
+        fallbacks=[CommandHandler("cancel", cancel_conversation)],
     )
     
     return [
