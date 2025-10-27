@@ -14,9 +14,11 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-# Assuming keyboards.py is in the same directory or accessible
 from bot.keyboards import chunk_list
 from config import Settings
+
+# --- Import the new service ---
+from services.exercise_reporting_service import ExerciseReportingService
 from services.mongo import MongoService
 from services.reporting_service import ReportingService
 from services.training_config_service import TrainingConfigService
@@ -25,10 +27,12 @@ logger = logging.getLogger(__name__)
 
 # --- Conversation states ---
 SELECT_CALENDAR_WORKOUT = 0
-# State for view_training
-SELECT_SESSION = 1 
+SELECT_SESSION = 1
+# --- New states for exercise reporting ---
+SELECT_EXERCISE, SELECT_REPORT_TYPE = range(2, 4)
 
 
+# --- Calendar Conversation (Unchanged) ---
 async def calendar_start(update: Update, context: CallbackContext, config_service: TrainingConfigService):
     """Starts the /calendar convo by parsing month arg and asking for a workout filter."""
     user_id = update.effective_user.id
@@ -44,33 +48,20 @@ async def calendar_start(update: Update, context: CallbackContext, config_servic
     
     context.user_data['calendar_months'] = months_to_plot
     
-    # Get available workouts to build the filter
     workout_names = config_service.get_workout_names(user_id)
-    
-    # Create buttons with lowercase text
     buttons = [
-        InlineKeyboardButton(
-            name.lower(), 
-            callback_data=f"cal_{name}"
-        ) 
+        InlineKeyboardButton(name.lower(), callback_data=f"cal_{name}") 
         for name in workout_names
     ]
-    
-    # Group into rows of 3
     keyboard = chunk_list(buttons, 3)
-    # Add "All Workouts" button on its own row at the end
-    keyboard.append(
-        [InlineKeyboardButton("All Workouts", callback_data="cal_all")]
-    )
+    keyboard.append([InlineKeyboardButton("All Workouts", callback_data="cal_all")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         "Which workout type would you like to see in the calendar?", 
         reply_markup=reply_markup
     )
-    
     return SELECT_CALENDAR_WORKOUT
-
 
 async def display_calendar_for_workout(update: Update, context: CallbackContext, reporting_service: ReportingService):
     """Handles workout filter selection and displays the correct calendar(s)."""
@@ -88,10 +79,7 @@ async def display_calendar_for_workout(update: Update, context: CallbackContext,
     now = datetime.now()
     calendar_strings = []
     
-    logger.info(
-        "User %s selected calendar filter '%s' for %s months", 
-        user_id, filter_choice, months_to_plot
-    )
+    logger.info("User %s selected calendar filter '%s' for %s months", user_id, filter_choice, months_to_plot)
     
     try:
         for i in range(months_to_plot):
@@ -108,7 +96,6 @@ async def display_calendar_for_workout(update: Update, context: CallbackContext,
         if not calendar_strings:
             await query.edit_message_text("No activity found for this filter in the selected period.")
         else:
-            # Join multiple calendars with double newlines
             final_message = "\n\n".join(calendar_strings)
             await query.edit_message_text(final_message, parse_mode='MarkdownV2')
 
@@ -116,13 +103,20 @@ async def display_calendar_for_workout(update: Update, context: CallbackContext,
         logger.error("Error generating activity calendar for user %s: %s", user_id, e, exc_info=True)
         await query.edit_message_text("Sorry, I couldn't generate your activity calendar right now.")
     
-    # Clean up user_data
     if 'calendar_months' in context.user_data:
         del context.user_data['calendar_months']
-        
     return ConversationHandler.END
 
+async def cancel_calendar(update: Update, context: CallbackContext):
+    """Cancels the calendar generation conversation."""
+    user_id = update.effective_user.id
+    logger.info("User %s cancelled calendar generation.", user_id)
+    await update.effective_message.reply_text("Cancelled calendar generation.")
+    if 'calendar_months' in context.user_data:
+        del context.user_data['calendar_months']
+    return ConversationHandler.END
 
+# --- View Training Conversation (Unchanged) ---
 async def view_training_start(update: Update, context: CallbackContext, mongo: MongoService):
     """Starts /view_training: parses days, fetches sessions, and shows them in a keyboard."""
     user_id = update.effective_user.id
@@ -136,47 +130,29 @@ async def view_training_start(update: Update, context: CallbackContext, mongo: M
     if days_back < 1:
         days_back = 1
     
-    # Calculate date range
     t1 = datetime.now()
     t0 = t1 - timedelta(days=days_back)
     
-    # Query for all trainings in the period
-    trainings = mongo.query_between_dates(
-        user_id=user_id,
-        t0=t0,
-        t1=t1,
-    )
+    trainings = mongo.query_between_dates(user_id=user_id, t0=t0, t1=t1)
     
     if not trainings:
-        await update.message.reply_text(
-            f"No sessions found in the last {days_back} days."
-        )
+        await update.message.reply_text(f"No sessions found in the last {days_back} days.")
         return ConversationHandler.END
 
     keyboard = []
     for training in trainings:
-        # Format: "DD-MM"
-        date_str = training.date.strftime('%y-%m-%d')
-        # Format: "(workout1, workout2)" in lowercase
-        workout_names_str = ", ".join(
-            [w.name.lower() for w in training.workouts]
-        )
-        
-        summary_line = f"{date_str}:  ({workout_names_str})"
+        date_str = training.date.strftime('%d-%m')
+        workout_names_str = ", ".join([w.name.lower() for w in training.workouts])
+        summary_line = f"{date_str} ({workout_names_str})"
         callback_data = str(training.mongo_id)
-        
-        keyboard.append(
-            [InlineKeyboardButton(summary_line, callback_data=callback_data)]
-        )
+        keyboard.append([InlineKeyboardButton(summary_line, callback_data=callback_data)])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         f"Here are your sessions from the last {days_back} days:", 
         reply_markup=reply_markup
     )
-    
     return SELECT_SESSION
-
 
 async def select_session_to_view(update: Update, context: CallbackContext, mongo: MongoService, reporting_service: ReportingService):
     """Handles user's selection and displays the detailed summary."""
@@ -184,7 +160,6 @@ async def select_session_to_view(update: Update, context: CallbackContext, mongo
     await query.answer()
     training_id = query.data
     
-    # Check if data is a valid Mongo ID to avoid processing other callbacks
     if not training_id or len(training_id) != 24:
         logger.warning("Invalid callback data received in select_session_to_view: %s", training_id)
         await query.edit_message_text("An unexpected error occurred. Please try again.")
@@ -199,27 +174,191 @@ async def select_session_to_view(update: Update, context: CallbackContext, mongo
 
     summary = reporting_service.format_training_details(training)
     await query.edit_message_text(summary, parse_mode='Markdown')
-        
     return ConversationHandler.END
 
-
-async def cancel_conversation(update: Update, context: CallbackContext):
-    """Cancels the ongoing conversation."""
+async def cancel_view(update: Update, context: CallbackContext):
+    """Cancels the view_sessions conversation."""
     user_id = update.effective_user.id
-    logger.info("User %s cancelled ongoing conversation.", user_id)
-    await update.effective_message.reply_text("Cancelled conversation.")
+    logger.info("User %s cancelled viewing sessions.", user_id)
+    await update.effective_message.reply_text("Cancelled viewing sessions.")
     return ConversationHandler.END
 
+
+# --- 🆕 New Conversation: Exercise Report ---
+
+async def exercise_report_start(update: Update, context: CallbackContext, config_service: TrainingConfigService):
+    """Starts /exercise_report: parses days, asks for exercise."""
+    user_id = update.effective_user.id
+    logger.info("User %s started /exercise_report.", user_id)
+
+    try:
+        days_back = int(context.args[0]) if context.args else 30
+    except (ValueError, IndexError):
+        days_back = 30
+    
+    t1 = datetime.now()
+    t0 = t1 - timedelta(days=days_back)
+    
+    context.user_data['report_t0'] = t0
+    context.user_data['report_t1'] = t1
+    context.user_data['report_days'] = days_back
+
+    # Get all exercises from config
+    exercise_names = config_service.get_all_exercise_names(user_id)
+    buttons = [
+        InlineKeyboardButton(
+            name.replace("_", " ").title(), 
+            callback_data=f"ex_{name}"
+        ) 
+        for name in sorted(exercise_names)
+    ]
+    
+    if not buttons:
+        await update.message.reply_text("I couldn't find any exercises configured.")
+        return ConversationHandler.END
+
+    keyboard = chunk_list(buttons, 2) # Rows of 2 for readability
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        f"Which exercise do you want to report on for the last {days_back} days?",
+        reply_markup=reply_markup
+    )
+    return SELECT_EXERCISE
+
+
+async def select_exercise_for_report(update: Update, context: CallbackContext, exercise_reporting_service: ExerciseReportingService):
+    """Handles exercise selection, asks for report type."""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    exercise_name = query.data.split('_', 1)[1]
+    context.user_data['report_exercise'] = exercise_name
+    
+    logger.info("User %s selected exercise '%s' for report.", user_id, exercise_name)
+
+    # Call the service to see what reports are available
+    available_reports = exercise_reporting_service.get_available_reports_for_exercise(
+        user_id, exercise_name
+    )
+    
+    if not available_reports:
+        await query.edit_message_text(
+            f"No report types are available for '{exercise_name}'. "
+            "This might be because its metrics aren't configured for reporting."
+        )
+        return ConversationHandler.END
+    
+    # Build keyboard for available reports
+    keyboard = [
+        [InlineKeyboardButton(display_name, callback_data=f"rt_{key}")]
+        for key, display_name in available_reports
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        f"Which report would you like for *{exercise_name.replace('_', ' ').title()}*?",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
+    return SELECT_REPORT_TYPE
+
+
+async def generate_and_send_report(update: Update, context: CallbackContext, exercise_reporting_service: ExerciseReportingService):
+    """Handles report type selection, generates and sends the report."""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text("Generating your report, please wait...")
+
+    user_id = query.from_user.id
+    report_type = query.data.split('_', 1)[1]
+    
+    # Get all data from context
+    try:
+        t0 = context.user_data['report_t0']
+        t1 = context.user_data['report_t1']
+        days = context.user_data['report_days']
+        exercise_name = context.user_data['report_exercise']
+    except KeyError as e:
+        logger.error("Missing user_data in generate_report: %s", e)
+        await query.edit_message_text("Sorry, your session expired. Please start over.")
+        return ConversationHandler.END
+
+    logger.info("User %s generating '%s' report for '%s'", user_id, report_type, exercise_name)
+
+    # Call the service to get the report data
+    report_data = exercise_reporting_service.generate_report(
+        report_type=report_type,
+        user_id=user_id,
+        exercise_name=exercise_name,
+        t0=t0,
+        t1=t1,
+    )
+
+    if not report_data:
+        await query.edit_message_text(
+            f"No data found for *{exercise_name.replace('_', ' ').title()}* "
+            f"in the last {days} days."
+        )
+        return ConversationHandler.END
+    
+    # Send the report
+    text_summary = report_data.get("text", "Report generation failed.")
+    chart = report_data.get("chart") # This is a BytesIO object
+
+    await query.delete_message() # Delete the "Generating..." message
+    
+    if chart:
+        # Send chart as a photo with the text summary as a caption
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=chart,
+            caption=text_summary,
+            parse_mode='Markdown'
+        )
+    else:
+        # Just send the text
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=text_summary,
+            parse_mode='Markdown'
+        )
+
+    # Clean up context
+    for key in ['report_t0', 'report_t1', 'report_days', 'report_exercise']:
+        if key in context.user_data:
+            del context.user_data[key]
+            
+    return ConversationHandler.END
+
+
+async def cancel_exercise_report(update: Update, context: CallbackContext):
+    """Cancels the exercise report conversation."""
+    user_id = update.effective_user.id
+    logger.info("User %s cancelled exercise report.", user_id)
+    await update.effective_message.reply_text("Cancelled exercise report.")
+    
+    # Clean up context
+    for key in ['report_t0', 'report_t1', 'report_days', 'report_exercise']:
+        if key in context.user_data:
+            del context.user_data[key]
+            
+    return ConversationHandler.END
+
+
+# --- Handler Factory ---
 
 def get_reporting_handlers(
     mongo: MongoService, 
     reporting_service: ReportingService, 
     config_service: TrainingConfigService,
-    settings: Settings
+    settings: Settings,
+    exercise_reporting_service: ExerciseReportingService # <-- Add new service
 ) -> list:
     """Creates and returns all reporting-related handlers."""
     
-    # New ConversationHandler for /calendar
     calendar_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("calendar", lambda u, c: calendar_start(u, c, config_service=config_service))],
         states={
@@ -230,27 +369,47 @@ def get_reporting_handlers(
                 )
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_conversation)],
-        conversation_timeout=300  # 5 minutes
+        fallbacks=[CommandHandler("cancel", cancel_calendar)],
+        conversation_timeout=300
     )
     
-    # Refactored ConversationHandler for /view_training
     view_sessions_conv_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler("view_training", lambda u, c: view_training_start(u, c, mongo=mongo))
-        ],
+        entry_points=[CommandHandler("view_training", lambda u, c: view_training_start(u, c, mongo=mongo))],
         states={
-            # State to handle the button press with the training_id
             SELECT_SESSION: [
                 CallbackQueryHandler(
                     lambda u, c: select_session_to_view(u, c, mongo=mongo, reporting_service=reporting_service)
                 )
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_conversation)],
+        fallbacks=[CommandHandler("cancel", cancel_view)],
+        conversation_timeout=300
+    )
+    
+    exercise_report_conv_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler("exercise_report", lambda u, c: exercise_report_start(u, c, config_service=config_service))
+        ],
+        states={
+            SELECT_EXERCISE: [
+                CallbackQueryHandler(
+                    lambda u, c: select_exercise_for_report(u, c, exercise_reporting_service=exercise_reporting_service),
+                    pattern="^ex_"
+                )
+            ],
+            SELECT_REPORT_TYPE: [
+                CallbackQueryHandler(
+                    lambda u, c: generate_and_send_report(u, c, exercise_reporting_service=exercise_reporting_service),
+                    pattern="^rt_"
+                )
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_exercise_report)],
+        conversation_timeout=300 # 5 minutes
     )
     
     return [
         calendar_conv_handler,
-        view_sessions_conv_handler
+        view_sessions_conv_handler,
+        exercise_report_conv_handler # <-- Add new handler to the list
     ]

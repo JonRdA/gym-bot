@@ -32,6 +32,15 @@ class TrainingConfigService:
         #     return list(user_config.keys())
         return list(self._default_config.keys())
 
+    def get_all_exercise_names(self, user_id: int) -> list[str]:
+        """Returns a list of available exercise names for a user, checking cache first."""
+        result = []
+        for workout in self._default_config.values():
+            for exercise in workout["exercises"]:
+                result.append(exercise["name"])
+        return result
+
+
     def get_workout_details(self, user_id: int, workout_name: WorkoutName) -> dict | None:
         """Gets the configuration for a specific workout for a user, using cache."""
         # user_config = self._get_user_config_from_mongo(user_id)
