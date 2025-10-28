@@ -355,7 +355,6 @@ def get_reporting_handlers(
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_calendar)],
-        conversation_timeout=300
     )
     
     view_sessions_conv_handler = ConversationHandler(
@@ -368,7 +367,6 @@ def get_reporting_handlers(
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_view)],
-        conversation_timeout=300
     )
     
     exercise_report_conv_handler = ConversationHandler(
@@ -390,7 +388,6 @@ def get_reporting_handlers(
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_exercise_report)],
-        conversation_timeout=300 # 5 minutes
     )
     
     return [
