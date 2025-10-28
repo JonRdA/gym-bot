@@ -6,10 +6,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-import matplotlib.dates as mdates
-
-# You will need to install this: pip install matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 from models.domain import Training
 from services.mongo import MongoService
@@ -24,13 +22,11 @@ REPORT_REGISTRY = {
     # Reports requiring 'reps'
     ("reps",): [
         ("total_reps", "Total Reps"),
-        ("reps_per_session", "Reps per Session (Avg)"),
     ],
     # Reports requiring 'reps' AND 'weight'
     ("reps", "weight"): [
         ("total_volume", "Total Volume"),
         ("max_weight", "Max Weight"),
-        ("volume_per_session", "Volume per Session"),
     ],
     # Reports requiring 'time'
     ("time",): [
@@ -66,14 +62,8 @@ class ExerciseReportingService:
         # Remove duplicates and sort
         return sorted(list(set(available_reports)))
 
-    def generate_report(
-        self,
-        report_type: str,
-        user_id: int,
-        exercise_name: str,
-        t0: datetime,
-        t1: datetime,
-    ) -> Optional[Dict[str, Any]]:
+    def generate_report(self, report_type: str, user_id: int, exercise_name: str,
+            t0: datetime, t1: datetime,) -> Optional[Dict[str, Any]]:
         """
         Main dispatcher function to generate a specific report.
         """
@@ -104,104 +94,126 @@ class ExerciseReportingService:
             )
             return {"text": "Sorry, an error occurred while generating your report."}
 
-    def _get_exercise_data(
-        self, user_id: int, exercise_name: str, t0: datetime, t1: datetime
-    ) -> List[Dict[str, Any]]:
+    def _get_workouts_for_exercise(self, user_id: int, exercise_name: str) -> List[str]:
         """
-        Queries Mongo and filters down to a flat list of sets for a specific exercise.
+        Finds all workout names that contain a given exercise, using the config.
         """
-        trainings = self.mongo.query_between_dates(user_id, t0, t1)
+        workout_names = self.config_service.get_workout_names(user_id)
+        relevant_workouts = []
+        for name in workout_names:
+            workout_details = self.config_service.get_workout_details(user_id, name)
+            if workout_details:
+                for ex in workout_details.get("exercises", []):
+                    if ex.get("name") == exercise_name:
+                        relevant_workouts.append(name)
+                        break  # Move to the next workout name
         
-        exercise_sets = []
+        logger.debug("Exercise '%s' is in workouts: %s", exercise_name, relevant_workouts)
+        return relevant_workouts
+
+    def _get_exercise_data(self, user_id: int, exercise_name: str, t0: datetime, t1: datetime) -> List[Dict[str, Any]]:
+        """
+        Queries Mongo efficiently and filters to a flat list of sets for a specific exercise.
+        """
+        # --- OPTIMIZATION ---
+        # 1. Find which workouts contain this exercise
+        relevant_workouts = self._get_workouts_for_exercise(user_id, exercise_name)
+        if not relevant_workouts:
+            logger.info("No workouts found containing '%s' in config.", exercise_name)
+            return []
+
+        # 2. Query Mongo *only* for trainings containing those workouts
+        trainings = self.mongo.query_between_dates_including_workouts(
+            user_id, t0, t1, required_workouts=relevant_workouts
+        )
+        
+        exercise_sessions = []
         for training in trainings:
             session_data = {"date": training.date, "sets": []}
             for workout in training.workouts:
-                for exercise in workout.exercises:
-                    if exercise.name == exercise_name:
-                        session_data["sets"].extend(
-                            [s.metrics for s in exercise.sets]
-                        )
+                # We still check workout name in case user did two workouts (e.g., 'push' and 'pull')
+                # but 'pull' doesn't have the exercise.
+                if workout.name in relevant_workouts:
+                    for exercise in workout.exercises:
+                        if exercise.name == exercise_name:
+                            session_data["sets"].extend([s.metrics for s in exercise.sets])
             
             if session_data["sets"]:
-                exercise_sets.append(session_data)
+                exercise_sessions.append(session_data)
                 
-        logger.debug("Found %d sessions with exercise '%s'", len(exercise_sets), exercise_name)
-        return exercise_sets
+        logger.debug("Found %d sessions with exercise '%s'", len(exercise_sessions), exercise_name)
+        return sorted(exercise_sessions, key=lambda x: x['date'])
 
     # --- Specific Report Generators ---
-
-    def _generate_total_reps_report(
-        self, exercise_data: List[Dict], exercise_name: str
-    ) -> Dict[str, Any]:
+    def _generate_total_reps_report(self, exercise_data: List[Dict], exercise_name: str) -> Dict[str, Any]:
         """Calculates total reps and generates a plot of reps per session."""
-        total_reps = 0
         dates = []
         session_reps = []
 
         for session in exercise_data:
-            reps_in_this_session = 0
-            for s in session["sets"]:
-                reps_in_this_session += s.get("reps", 0)
-            
+            reps_in_this_session = sum(s.get("reps", 0) for s in session["sets"])
             if reps_in_this_session > 0:
-                total_reps += reps_in_this_session
                 dates.append(session["date"])
                 session_reps.append(reps_in_this_session)
 
-        title = f"{exercise_name.title()} Report: Total Reps"
+        if not dates:
+            return {"text": f"No sessions with reps found for {exercise_name.title()}."}
+
+        max_reps = max(session_reps)
+        title = f"{exercise_name.replace('_', ' ').title()} Report: Reps per Session"
+        
+        # --- MODIFIED TEXT ---
         text = (
             f"*{title}*\n\n"
-            f"You completed *{total_reps:,}* total reps "
-            f"across *{len(dates)}* sessions."
+            f"Report based on *{len(dates)} sessions*.\n"
+            f"Your max reps in a single day was *{max_reps:,.0f}*."
         )
 
-        chart = self._generate_simple_plot(
+        chart = self._generate_bar_chart(
             dates,
             session_reps,
-            title="Reps per Session",
+            title=title,
             ylabel="Total Reps",
         )
         return {"title": title, "text": text, "chart": chart}
 
-    def _generate_total_volume_report(
-        self, exercise_data: List[Dict], exercise_name: str
-    ) -> Dict[str, Any]:
+    def _generate_total_volume_report(self, exercise_data: List[Dict], exercise_name: str) -> Dict[str, Any]:
         """Calculates total volume and generates a plot of volume per session."""
-        total_volume = 0
         dates = []
         session_volumes = []
 
         for session in exercise_data:
-            volume_in_this_session = 0
-            for s in session["sets"]:
-                reps = s.get("reps", 0)
-                weight = s.get("weight", 0)
-                volume_in_this_session += reps * weight
-            
+            volume_in_this_session = sum(
+                s.get("reps", 0) * s.get("weight", 0) for s in session["sets"]
+            )
             if volume_in_this_session > 0:
-                total_volume += volume_in_this_session
                 dates.append(session["date"])
                 session_volumes.append(volume_in_this_session)
+        
+        if not dates:
+            return {"text": f"No sessions with volume found for {exercise_name.title()}."}
 
-        # Assuming weight is in KG
-        title = f"{exercise_name.title()} Report: Total Volume (kg)"
+        max_volume = max(session_volumes)
+        title = f"{exercise_name.replace('_', ' ').title()} Report: Volume (kg)"
+
+        # --- MODIFIED TEXT ---
         text = (
             f"*{title}*\n\n"
-            f"You lifted a total volume of *{total_volume:,.0f} kg* "
-            f"across *{len(dates)}* sessions."
+            f"Report based on *{len(dates)} sessions*.\n"
+            f"Your max volume in a single day was *{max_volume:,.0f} kg*."
         )
 
-        chart = self._generate_simple_plot(
+        chart = self._generate_bar_chart(
             dates,
             session_volumes,
-            title="Volume per Session",
+            title=title,
             ylabel="Total Volume (kg)",
         )
         return {"title": title, "text": text, "chart": chart}
 
-    # --- Plotting Utility ---
+    # --- Plotting Utility (Modified) ---
 
-    def _generate_simple_plot(
+    def _generate_bar_chart(
         self,
         dates: List[datetime],
         values: List[float],
@@ -209,32 +221,38 @@ class ExerciseReportingService:
         ylabel: str,
     ) -> Optional[io.BytesIO]:
         """
-        Generates a simple date-based line plot and returns it as a BytesIO object.
+        Generates a phone-optimized bar chart and returns it as a BytesIO object.
         """
-        if not dates or len(dates) < 2:
-            logger.info("Not enough data to plot for '%s'", title)
-            return None  # Can't plot less than 2 points
+        if not dates:
+            return None
 
         try:
-            plt.figure(figsize=(10, 6))
-            plt.plot(dates, values, marker='o', linestyle='-')
+            # --- MODIFIED: Smaller figure size ---
+            plt.figure(figsize=(8, 4))
             
-            # Format x-axis to show dates nicely
-            plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-            plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-            plt.gcf().autofmt_xdate() # Auto-rotate dates
+            # --- MODIFIED: Use bar chart ---
+            bar_width = 0.8  # Relative width
+            # Use numerical indices for bar positions
+            x_indices = np.arange(len(dates))
+            plt.bar(x_indices, values, width=bar_width)
+
+            # --- MODIFIED: Clean X-axis labels ---
+            # Show ~4 labels (start, end, and 2 in middle)
+            num_labels = min(len(dates), 4)
+            tick_indices = np.linspace(0, len(dates) - 1, num_labels, dtype=int)
+            tick_labels = [dates[i].strftime('%d-%m') for i in tick_indices]
             
-            plt.title(title)
-            plt.ylabel(ylabel)
-            plt.xlabel("Date")
-            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.xticks(ticks=x_indices[tick_indices], labels=tick_labels, rotation=0) # No rotation
+            
+            plt.title(title, fontsize=14)
+            plt.ylabel(ylabel, fontsize=10)
+            plt.grid(True, axis='y', linestyle='--', alpha=0.6) # Grid only on y-axis
             plt.tight_layout()
 
-            # Save plot to a bytes buffer
             buf = io.BytesIO()
             plt.savefig(buf, format="png")
             buf.seek(0)
-            plt.close() # Close the figure to free memory
+            plt.close()
             return buf
         
         except Exception as e:

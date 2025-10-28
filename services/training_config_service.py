@@ -25,12 +25,12 @@ class TrainingConfigService:
             logger.error("Failed to load training config file: %s", e, exc_info=True)
             self._default_config = {}
 
-    def get_workout_names(self, user_id: int) -> list[str]:
+    def get_workout_names(self, user_id: int) -> list[WorkoutName]:
         """Returns a list of available workout names for a user, checking cache first."""
         # user_config = self._get_user_config_from_mongo(user_id)
         # if user_config:
         #     return list(user_config.keys())
-        return list(self._default_config.keys())
+        return [WorkoutName(wo_name_str) for wo_name_str in list(self._default_config.keys())]
 
     def get_all_exercise_names(self, user_id: int) -> list[str]:
         """Returns a list of available exercise names for a user, checking cache first."""

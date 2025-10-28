@@ -15,9 +15,8 @@ from telegram.ext import (
 )
 
 from bot.keyboards import chunk_list
+from bot.utils import chunk_list, get_date_range_for_month, get_date_range_from_days
 from config import Settings
-
-# --- Import the new service ---
 from services.exercise_reporting_service import ExerciseReportingService
 from services.mongo import MongoService
 from services.reporting_service import ReportingService
@@ -121,17 +120,10 @@ async def view_training_start(update: Update, context: CallbackContext, mongo: M
     """Starts /view_training: parses days, fetches sessions, and shows them in a keyboard."""
     user_id = update.effective_user.id
     logger.info("User %s started /view_training.", user_id)
-    
-    try:
-        days_back = int(context.args[0]) if context.args else 10
-    except (ValueError, IndexError):
-        days_back = 10
-    
-    if days_back < 1:
-        days_back = 1
-    
-    t1 = datetime.now()
-    t0 = t1 - timedelta(days=days_back)
+
+    days_arg = context.args[0] if context.args else None
+    t0, t1 = get_date_range_from_days(days_arg, default=10)
+    days_back = (t1 - t0).days
     
     trainings = mongo.query_between_dates(user_id=user_id, t0=t0, t1=t1)
     
@@ -191,13 +183,9 @@ async def exercise_report_start(update: Update, context: CallbackContext, config
     user_id = update.effective_user.id
     logger.info("User %s started /exercise_report.", user_id)
 
-    try:
-        days_back = int(context.args[0]) if context.args else 30
-    except (ValueError, IndexError):
-        days_back = 30
-    
-    t1 = datetime.now()
-    t0 = t1 - timedelta(days=days_back)
+    days_arg = context.args[0] if context.args else None
+    t0, t1 = get_date_range_from_days(days_arg, default=30)
+    days_back = (t1 - t0).days
     
     context.user_data['report_t0'] = t0
     context.user_data['report_t1'] = t1
@@ -265,7 +253,8 @@ async def select_exercise_for_report(update: Update, context: CallbackContext, e
     return SELECT_REPORT_TYPE
 
 
-async def generate_and_send_report(update: Update, context: CallbackContext, exercise_reporting_service: ExerciseReportingService):
+async def generate_and_send_report(update: Update, context: CallbackContext,
+        exercise_reporting_service: ExerciseReportingService):
     """Handles report type selection, generates and sends the report."""
     query = update.callback_query
     await query.answer()
@@ -289,12 +278,8 @@ async def generate_and_send_report(update: Update, context: CallbackContext, exe
     logger.info("User %s generating '%s' report for '%s'", user_id, report_type, exercise_name)
 
     # Call the service to get the report data
-    report_data = exercise_reporting_service.generate_report(
-        report_type=report_type,
-        user_id=user_id,
-        exercise_name=exercise_name,
-        t0=t0,
-        t1=t1,
+    report_data = exercise_reporting_service.generate_report(report_type=report_type, user_id=user_id,
+        exercise_name=exercise_name, t0=t0, t1=t1,
     )
 
     if not report_data:

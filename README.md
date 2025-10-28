@@ -50,3 +50,6 @@ add - Add new training
 calendar - View trainings calendar
 view_training - View complete training
 cancel - Cancel current conversation
+exercise_report - Report exercise's metrics
+repeat - Repeat metric input
+done - Finish entering exercise's metrics
