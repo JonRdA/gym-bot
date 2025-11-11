@@ -15,7 +15,7 @@ def create_workout_selection_keyboard(workout_names: List[WorkoutName]) -> Inlin
     """Creates a keyboard with workout names in rows of 3 and a finish button."""
     # Create buttons for each workout
     buttons = [
-        InlineKeyboardButton(name.replace("_", " ").lower(), callback_data=f"addworkout_{name}")
+        InlineKeyboardButton(name.name.replace("_", " ").lower(), callback_data=f"addworkout_{name.name}")
         for name in workout_names
     ]
 

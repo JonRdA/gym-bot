@@ -164,7 +164,7 @@ async def selected_workout_to_add(update: Update, context: CallbackContext, conf
     await query.answer()
     
     workout_name_str = query.data.split('_')[1] # from "addworkout_upper"
-    workout_name = WorkoutName(workout_name_str)
+    workout_name = WorkoutName[workout_name_str]
     context.user_data['current_workout_name'] = workout_name
     
     logger.info("User %s selected workout '%s'", query.from_user.id, workout_name_str)
