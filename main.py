@@ -1,6 +1,8 @@
 import logging
 import os  # Import the os module
+from datetime import timedelta
 
+from telegram import Update
 from telegram.ext import Application
 
 from bot.handlers import get_conversation_handler
@@ -61,6 +63,7 @@ def main() -> None:
 
     logger.info("Bot is ready and listening for commands.")
     application.run_polling()
+    ptb.run_polling(poll_interval=0, timeout=timedelta(seconds=45), allowed_updates=Update.MESSAGE)
 
 
 if __name__ == "__main__":
