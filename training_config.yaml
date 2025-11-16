@@ -23,6 +23,10 @@ workouts:
       - name: pushup
         metrics:
           - reps
+      - name: bench_press
+        metrics:
+          - reps
+          - weight
 
   frontsplit:
     exercises:

@@ -45,6 +45,7 @@ class ExerciseName(str, Enum):
     DIP = "dip"
     PIKE_PUSHUP = "pike_pushup"
     PRESS = "press"
+    BENCH_PRESS = "bench_press"
     PUSHUP = "pushup"
 
     # frontsplit
