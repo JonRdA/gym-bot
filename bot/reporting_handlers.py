@@ -133,7 +133,7 @@ async def view_training_start(update: Update, context: CallbackContext, mongo: M
 
     keyboard = []
     for training in trainings:
-        date_str = training.date.strftime('%y%m-%d')
+        date_str = training.date.strftime('%y-%m-%d')
         workout_names_str = ", ".join([w.name.lower() for w in training.workouts])
         summary_line = f"{date_str} ({workout_names_str})"
         callback_data = str(training.mongo_id)
