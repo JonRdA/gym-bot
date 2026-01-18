@@ -165,8 +165,8 @@ class ExerciseReportingService:
         # --- MODIFIED TEXT ---
         text = (
             f"*{title}*\n\n"
-            f"Report based on *{len(dates)} sessions*.\n"
-            f"Your max reps in a single day was *{max_reps:,.0f}*."
+            f"Max reps in day: *{max_reps:,.0f}*.\n"
+            f"Last training reps: *{session_reps[-1]:,.0f}*."
         )
 
         chart = self._generate_bar_chart(

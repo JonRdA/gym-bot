@@ -269,7 +269,7 @@ async def received_set(update: Update, context: CallbackContext):
         
         logger.debug("Added set for user %s: %s", update.effective_user.id, new_set.model_dump_json())
         count = len(context.user_data['current_exercise_obj'].sets)
-        await update.message.reply_text(messages.ADDED_SET.format(count=count))
+        await update.message.reply_text(messages.ADD_SET.format(count=count+1))
     except (ValueError, ValidationError) as e:
         logger.error("Error parsing set data '%s': %s", update.message.text, e, exc_info=True)
         await update.message.reply_text(messages.ERROR_PROCESSING_SET)
@@ -295,7 +295,7 @@ async def repeat_set_command(update: Update, context: CallbackContext):
     else:
         context.user_data['current_exercise_obj'].sets.append(context.user_data['last_set'])
         count = len(context.user_data['current_exercise_obj'].sets)
-        await update.message.reply_text(messages.ADDED_SET.format(count=count))
+        await update.message.reply_text(messages.ADD_SET.format(count=count+1))
     return PROCESSING_EXERCISES
 
 
