@@ -220,33 +220,28 @@ class ExerciseReportingService:
         title: str,
         ylabel: str,
     ) -> Optional[io.BytesIO]:
-        """
-        Generates a phone-optimized bar chart and returns it as a BytesIO object.
-        """
         if not dates:
             return None
 
         try:
-            # --- MODIFIED: Smaller figure size ---
             plt.figure(figsize=(8, 4))
             
-            # --- MODIFIED: Use bar chart ---
-            bar_width = 0.8  # Relative width
-            # Use numerical indices for bar positions
-            x_indices = np.arange(len(dates))
-            plt.bar(x_indices, values, width=bar_width)
+            # 1. Pass 'dates' directly instead of indices
+            # We set a width (in days) for the bars. 0.8 is usually good for daily data.
+            plt.bar(dates, values, width=0.8, align='center')
 
-            # --- MODIFIED: Clean X-axis labels ---
-            # Show ~4 labels (start, end, and 2 in middle)
-            num_labels = min(len(dates), 4)
-            tick_indices = np.linspace(0, len(dates) - 1, num_labels, dtype=int)
-            tick_labels = [dates[i].strftime('%d-%m') for i in tick_indices]
+            # 2. Use Date Formatter to ensure the X-axis looks clean
+            import matplotlib.dates as mdates
+            ax = plt.gca()
             
-            plt.xticks(ticks=x_indices[tick_indices], labels=tick_labels, rotation=0) # No rotation
+            # This automatically picks the best intervals (days, months, etc.)
+            ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
             
             plt.title(title, fontsize=14)
             plt.ylabel(ylabel, fontsize=10)
-            plt.grid(True, axis='y', linestyle='--', alpha=0.6) # Grid only on y-axis
+            plt.grid(True, axis='y', linestyle='--', alpha=0.6)
+            
             plt.tight_layout()
 
             buf = io.BytesIO()
