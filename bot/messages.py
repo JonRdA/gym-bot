@@ -12,8 +12,9 @@ PROMPT_WORKOUT_SELECTION_NEXT = "Add another workout, or finish."
 PROMPT_WORKOUT_COMPLETION = "Did you complete this workout?"
 PROMPT_REST_TIME = "Rest time in seconds for {exercise_name}?"
 PROMPT_SETS = (
-    "Enter sets for *{exercise_title}*\\. /repeat or /done"
+    "Enter sets for *{exercise_title}*\\.\n"
     "Format: `{metric_names}`\n"
+    "/done"
 )
 
 # --- Confirmations & Info ---
