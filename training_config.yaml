@@ -16,17 +16,9 @@ workouts:
       - name: pike_pushup
         metrics:
           - reps
-      - name: press
-        metrics:
-          - reps
-          - weight
       - name: pushup
         metrics:
           - reps
-      - name: bench_press
-        metrics:
-          - reps
-          - weight
 
   frontsplit:
     exercises:
@@ -54,6 +46,14 @@ workouts:
           - reps
           - knee2floor
       - name: stride_stance_deadlift
+        metrics:
+          - reps
+          - weight
+      - name: backsquat
+        metrics:
+          - reps
+          - weight
+      - name: deadlift
         metrics:
           - reps
           - weight
@@ -85,3 +85,13 @@ workouts:
         metrics:
           - reps
           - weight
+      - name: pushup
+        metrics:
+          - reps
+
+  run:
+    exercises:
+      - name: run
+        metrics:
+          - time
+          - distance

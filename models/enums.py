@@ -36,6 +36,7 @@ class WorkoutName(str, Enum):
     LOWER = "lower"
     HANDSTAND = "handstand"
     HOME = "home"
+    RUN = "run"
 
 
 class ExerciseName(str, Enum):
