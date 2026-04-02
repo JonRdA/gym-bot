@@ -6,13 +6,14 @@ workouts:
         track_rest: true
         metrics:
           - reps
+          - weight
 
   push:
     exercises:
-      - name: dip
-        track_rest: true
-        metrics:
-          - reps
+      # - name: dip
+        # track_rest: true
+        # metrics:
+          # - reps
       - name: pike_pushup
         metrics:
           - reps
@@ -20,8 +21,31 @@ workouts:
         metrics:
           - reps
 
-  frontsplit:
+  # frontsplit:
+  #   exercises:
+      # - name: wide_split_squat
+      #   metrics:
+      #     - reps
+      #     - thigh2floor
+
+  lower:
     exercises:
+      # - name: cossack_squat
+      #   metrics:
+      #     - reps
+      #     - weight
+      # - name: shrimp
+      #   metrics:
+      #     - reps
+      #     - knee2floor
+      # - name: stride_stance_deadlift
+      #   metrics:
+      #     - reps
+      #     - weight
+      - name: backsquat
+        metrics:
+          - reps
+          - weight
       - name: jefferson_curl
         metrics:
           - reps
@@ -30,40 +54,17 @@ workouts:
         metrics:
           - reps
           - weight
-      - name: wide_split_squat
-        metrics:
-          - reps
-          - thigh2floor
-
-  lower:
-    exercises:
-      - name: cossack_squat
-        metrics:
-          - reps
-          - weight
-      - name: shrimp
-        metrics:
-          - reps
-          - knee2floor
-      - name: stride_stance_deadlift
-        metrics:
-          - reps
-          - weight
-      - name: backsquat
-        metrics:
-          - reps
-          - weight
-      - name: deadlift
-        metrics:
-          - reps
-          - weight
+      # - name: deadlift
+      #   metrics:
+      #     - reps
+      #     - weight
 
   handstand:
     exercises:
-      - name: bridge
-        metrics:
-          - time
-          - feet2floor
+      # - name: bridge
+      #   metrics:
+      #     - time
+      #     - feet2floor
       - name: chest2wall
         metrics:
           - time
