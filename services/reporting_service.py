@@ -78,7 +78,7 @@ class ReportingService:
             new_line = line
             for day_num, completed in training_days.items():
                 day_str = f"{day_num: >2}"
-                marker = " ■" if completed else " □"
+                marker = "🟢" if completed else "🔶"
                 # Use digit-boundary guards to avoid matching substrings
                 # e.g. day 2 must not match "20", "21", "28", etc.
                 pattern = rf'(?<!\d){re.escape(day_str)}(?!\d)'

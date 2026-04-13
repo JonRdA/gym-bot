@@ -6,3 +6,4 @@ __pycache__/
 mongo-data
 .vscode
 trainings_backup/
+CLAUDE.md
