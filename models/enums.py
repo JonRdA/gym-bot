@@ -8,6 +8,7 @@ class Unit(str, Enum):
     S = "s"
     CM = "cm"
     KG = "kg"
+    M = "m"
     REPS = ""
 
 
@@ -19,6 +20,7 @@ class Metric(str, Enum):
     KNEE2FLOOR = ("knee2floor", Unit.CM)
     FEET2FLOOR = ("feet2floor", Unit.CM)
     TIME = ("time", Unit.S)
+    DISTANCE = ("distance", Unit.M)
 
     def __new__(cls, value: str, unit: Unit | None):
         """Override __new__ to allow attaching a unit to each metric."""
@@ -48,6 +50,8 @@ class ExerciseName(str, Enum):
     PRESS = "press"
     BENCH_PRESS = "bench_press"
     PUSHUP = "pushup"
+    ROW = "row"
+    BICEPS_CURL = "biceps_curl"
 
     # frontsplit
     WIDE_SPLIT_SQUAT = "wide_split_squat"
