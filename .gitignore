@@ -1,8 +1,8 @@
 .venv
-config-*.yaml
-!config-env.yaml
+.env
 *.pyc
 __pycache__/
+*.egg-info/
 mongo-data
 .vscode
 trainings_backup/
