@@ -3,8 +3,9 @@ Service layer for handling all data processing for reporting.
 """
 import calendar
 import logging
+import re
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Dict, Optional
 
 from config import Settings
 from models.domain import Training, Workout, WoSet
@@ -55,28 +56,33 @@ class ReportingService:
                 user_id, t0, t1, excluded_workouts=excluded
             )
         
-        training_days = {training.date.day for training in trainings}
+        # Map day number -> True if all workouts completed, False otherwise
+        training_days: Dict[int, bool] = {}
+        for training in trainings:
+            day = training.date.day
+            all_completed = all(w.completed for w in training.workouts)
+            training_days[day] = training_days.get(day, True) and all_completed
 
         cal = calendar.TextCalendar(calendar.MONDAY)
         month_calendar = cal.formatmonth(year, month).split('\n')
-        
+
         month_name = t0.strftime('%B %Y')
         header = f"🗓️ Activity for {month_name}\n"
-        
+
         # Use MarkdownV2 code block
         calendar_str = f"`{month_calendar[0]}\n{month_calendar[1]}\n"
 
         for line in month_calendar[2:]:
-            if not line.strip(): 
+            if not line.strip():
                 continue
             new_line = line
-            for day_num in training_days:
-                # Format day_num to match calendar's padding
+            for day_num, completed in training_days.items():
                 day_str = f"{day_num: >2}"
-                if day_str in new_line:
-                    # Replace with a marker, maintaining spacing
-                    # Using '■' as a solid block character
-                    new_line = new_line.replace(day_str, " ■")
+                marker = " ■" if completed else " □"
+                # Use digit-boundary guards to avoid matching substrings
+                # e.g. day 2 must not match "20", "21", "28", etc.
+                pattern = rf'(?<!\d){re.escape(day_str)}(?!\d)'
+                new_line = re.sub(pattern, marker, new_line)
             calendar_str += new_line + "\n"
         
         calendar_str += "`"
