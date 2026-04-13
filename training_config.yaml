@@ -3,7 +3,13 @@ workouts:
   pull:
     exercises:
       - name: pullup
-        track_rest: true
+        metrics:
+          - reps
+          - weight
+      - name: row
+        metrics:
+          - reps
+      - name: biceps_curl
         metrics:
           - reps
           - weight
@@ -54,10 +60,10 @@ workouts:
         metrics:
           - reps
           - weight
-      # - name: deadlift
-      #   metrics:
-      #     - reps
-      #     - weight
+      - name: deadlift
+        metrics:
+          - reps
+          - weight
 
   handstand:
     exercises:
