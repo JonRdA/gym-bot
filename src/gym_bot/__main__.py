@@ -1,5 +1,7 @@
-import asyncio
 import logging
+import warnings
+
+from telegram.warnings import PTBUserWarning
 
 from gym_bot.bot.app import build_application
 from gym_bot.bot.services import Services
@@ -16,6 +18,12 @@ logging.basicConfig(
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
+
+warnings.filterwarnings(
+    "ignore",
+    message=r".*per_message=False.*",
+    category=PTBUserWarning,
+)
 
 logger = logging.getLogger(__name__)
 
