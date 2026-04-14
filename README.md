@@ -136,6 +136,39 @@ multi-user mode (seed-on-first-run, no sync, no rewrites).
 Exercise metrics must exist in `METRIC_REGISTRY` (`domain/metrics.py`). Adding
 a new metric is one line there; the config loader rejects anything unknown.
 
+## Reports
+
+The bot exposes three read-only commands for reviewing past trainings.
+
+### `/calendar [months]`
+
+Monthly activity grid for the last *N* months (default: 1). Each day shows
+🟢 for a completed session, 🔶 for an incomplete one, `·` for rest days.
+`GYMBOT_EXCLUDED_WORKOUTS` hides noisy categories (e.g. `home`) from the
+unfiltered view; inline buttons let you re-filter by a single workout.
+
+### `/view_training`
+
+Lists your most recent trainings. Picking one expands the full breakdown:
+workouts, exercises, per-set metrics, and rest time when tracked.
+
+### `/exercise_report [days]`
+
+Per-exercise trend over the last *N* days (default: 30). You pick the
+exercise, then pick a report — the available reports depend on the metrics
+configured for that exercise in `training_config_default.yaml`:
+
+| Report           | Requires              | Shows                                           |
+|------------------|-----------------------|-------------------------------------------------|
+| **Total Reps**   | `reps`                | Reps summed per session. Max/day + last session.|
+| **Volume**| `reps` + `weight`     | `reps × weight` per session. Sessions + max/day.|
+| **Max Weight**   | `reps` + `weight`     | Heaviest set per session. All-time max + last.  |
+| **Total Time**   | `time`                | Time summed per session. Max/day + last session.|
+| **Max Time**     | `time`                | Longest hold per session. All-time max + last.  |
+| **Rest**         | `track_rest: true`    | Configured rest per session. Avg, min, last.    |
+
+Each report returns a text header plus a matplotlib bar chart.
+
 ## Backup / restore
 
 ```bash

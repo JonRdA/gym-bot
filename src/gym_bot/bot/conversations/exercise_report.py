@@ -9,9 +9,14 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-from gym_bot.bot.services import get_services
-from gym_bot.bot.callbacks import REPORT_TYPE, SELECT_EXERCISE, make_callback, parse_callback
+from gym_bot.bot.callbacks import (
+    REPORT_TYPE,
+    SELECT_EXERCISE,
+    make_callback,
+    parse_callback,
+)
 from gym_bot.bot.keyboards import chunk_buttons
+from gym_bot.bot.services import get_services
 from gym_bot.bot.state import clear_report_state, get_report_state
 
 logger = logging.getLogger(__name__)
@@ -19,7 +24,7 @@ logger = logging.getLogger(__name__)
 PICK_EXERCISE, PICK_REPORT = range(2)
 
 
-def _parse_days_arg(args: list[str] | None, default: int = 30) -> int:
+def _parse_days_arg(args: list[str] | None, default: int = 90) -> int:
     if not args:
         return default
     try:

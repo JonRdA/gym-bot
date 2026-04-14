@@ -138,13 +138,13 @@ class ExerciseReportingService:
         if not dates:
             return {"text": f"No volume data found for {exercise_name}."}
 
-        title = f"{_title(exercise_name)}: Volume (kg)"
+        title = f"{_title(exercise_name)}: Volume (reps x kg)"
         text = (
             f"*{title}*\n\n"
             f"*{len(dates)} sessions*\n"
-            f"Max volume in a day: *{max(values):,.0f} kg*"
+            f"Max volume in a day: *{max(values):,.0f} reps x kg*"
         )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Total Volume (kg)")}
+        return {"text": text, "chart": _bar_chart(dates, values, title, "Volume (reps x kg)")}
 
     def _report_max_weight(self, sessions: list[dict], exercise_name: str) -> dict:
         dates, values = [], []
@@ -229,6 +229,12 @@ def _title(exercise_name: str) -> str:
     return exercise_name.replace("_", " ").title()
 
 
+_BAR_COLOR = "#2f5d8a"
+_GRID_COLOR = "#e8e8e8"
+_AXIS_COLOR = "#888888"
+_TEXT_COLOR = "#2b2b2b"
+
+
 def _bar_chart(
     dates: list[datetime],
     values: list[float],
@@ -238,17 +244,34 @@ def _bar_chart(
     if not dates:
         return None
     try:
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.bar(dates, values, width=0.8, align="center")
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%d-%m"))
-        ax.set_title(title, fontsize=14)
-        ax.set_ylabel(ylabel, fontsize=10)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.6)
+        fig, ax = plt.subplots(figsize=(5.5, 7.5), dpi=160)
+
+        ax.bar(dates, values, width=0.7, color=_BAR_COLOR, edgecolor="none", zorder=2)
+
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=6))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
+
+        ax.set_title(title, fontsize=15, pad=16, color=_TEXT_COLOR, fontweight="semibold")
+        ax.set_ylabel(ylabel, fontsize=12, labelpad=10, color=_TEXT_COLOR)
+
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_color(_AXIS_COLOR)
+        ax.spines["bottom"].set_color(_AXIS_COLOR)
+
+        ax.tick_params(axis="both", colors=_AXIS_COLOR, labelsize=11, length=0)
+        ax.yaxis.grid(True, linestyle="-", linewidth=0.7, color=_GRID_COLOR, zorder=1)
+        ax.set_axisbelow(True)
+        ax.margins(x=0.05)
+
+        for label in ax.get_xticklabels():
+            label.set_rotation(35)
+            label.set_horizontalalignment("right")
+
         fig.tight_layout()
 
         buf = io.BytesIO()
-        fig.savefig(buf, format="png")
+        fig.savefig(buf, format="png", bbox_inches="tight", facecolor="white")
         buf.seek(0)
         return buf
     except Exception:
