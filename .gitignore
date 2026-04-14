@@ -7,3 +7,4 @@ mongo-data
 .vscode
 trainings_backup/
 CLAUDE.md
+.venv2
