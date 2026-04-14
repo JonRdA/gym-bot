@@ -169,12 +169,74 @@ configured for that exercise in `training_config_default.yaml`:
 
 Each report returns a text header plus a matplotlib bar chart.
 
+## Testing
+
+```bash
+# Install dev dependencies (only needed once)
+pip install -e '.[dev]'
+
+# Run all tests
+pytest
+
+# Run a specific file
+pytest tests/config/test_models.py
+
+# Run with more detail (shows each test name)
+pytest -v
+```
+
+Tests are fast and hermetic — no real database or Telegram connection needed. Everything
+runs in-process with fake collections and temp YAML files.
+
 ## Backup / restore
 
 ```bash
 python -m gym_bot.scripts.backup download            # dumps to trainings_backup/
 python -m gym_bot.scripts.backup upload trainings_backup/
 ```
+
+## Deployment (Raspberry Pi)
+
+Deployment is automated with Ansible. It SSHes into the Pi and handles everything —
+code sync, venv, MongoDB, and the systemd service.
+
+**First-time setup**
+
+```bash
+# 1. Install Ansible on your laptop
+pip install ansible
+
+# 2. Create and encrypt your secrets
+cp deploy/vault.yml.example deploy/vault.yml
+$EDITOR deploy/vault.yml          # fill in token, mongo password, owner user id
+ansible-vault encrypt deploy/vault.yml
+
+# 3. Set your Pi's IP in deploy/inventory.ini
+
+# 4. Deploy
+ansible-playbook deploy/playbook.yml -i deploy/inventory.ini --ask-vault-pass
+```
+
+**Re-deploying after changes**
+
+Same command — Ansible is idempotent (only changes what needs changing) and
+restarts the bot automatically when code or config changed.
+
+```bash
+ansible-playbook deploy/playbook.yml -i deploy/inventory.ini --ask-vault-pass
+```
+
+**Check bot status on the Pi**
+
+```bash
+ssh pi@<your-pi-ip>
+sudo systemctl status gym-bot
+sudo journalctl -u gym-bot -f     # live logs
+```
+
+> **Python version note**: Raspberry Pi OS Bookworm ships Python 3.11. If the
+> install fails because of the `>=3.12` requirement in `pyproject.toml`, change
+> it to `>=3.11` — the code is compatible.
 
 ## BotFather commands
 

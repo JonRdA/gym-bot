@@ -1,0 +1,2 @@
+project_dir: /opt/gym-bot
+deploy_user: pi           # must match ansible_user in inventory.ini

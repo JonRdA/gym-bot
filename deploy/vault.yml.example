@@ -1,0 +1,8 @@
+# Copy this to vault.yml, fill in real values, then encrypt:
+#   ansible-vault encrypt deploy/vault.yml
+#
+# Never commit vault.yml in plain text.
+
+vault_telegram_token: "your-telegram-bot-token"
+vault_mongo_password: "changeme"
+vault_owner_user_id: "123456789"

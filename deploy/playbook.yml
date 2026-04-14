@@ -1,0 +1,111 @@
+---
+- name: Deploy gym-bot to Raspberry Pi
+  hosts: raspi
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+
+  handlers:
+    - name: restart gym-bot
+      systemd:
+        name: gym-bot
+        state: restarted
+        daemon_reload: true
+
+  tasks:
+    # ── System ────────────────────────────────────────────────────────────────
+    - name: Install system packages
+      apt:
+        name:
+          - python3
+          - python3-venv
+          - python3-pip
+          - docker.io
+          - docker-compose-plugin
+          - rsync
+        state: present
+        update_cache: true
+
+    - name: Enable and start Docker
+      systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Add deploy user to docker group
+      user:
+        name: "{{ deploy_user }}"
+        groups: docker
+        append: true
+
+    # ── Code ──────────────────────────────────────────────────────────────────
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        mode: "0755"
+
+    - name: Sync project files
+      become: false
+      synchronize:
+        src: ../
+        dest: "{{ project_dir }}/"
+        delete: true
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=.venv"
+          - "--exclude=.env"
+          - "--exclude=mongo-data"
+          - "--exclude=trainings_backup"
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
+          - "--exclude=.pytest_cache"
+          - "--exclude=deploy/vault.yml"
+      notify: restart gym-bot
+
+    # ── Python env ────────────────────────────────────────────────────────────
+    - name: Create virtual environment
+      command: python3 -m venv {{ project_dir }}/.venv
+      args:
+        creates: "{{ project_dir }}/.venv"
+
+    - name: Install project into venv
+      pip:
+        name: "{{ project_dir }}"
+        virtualenv: "{{ project_dir }}/.venv"
+        editable: true
+        extra_args: --quiet
+      notify: restart gym-bot
+
+    # ── Secrets ───────────────────────────────────────────────────────────────
+    - name: Write .env file
+      template:
+        src: templates/env.j2
+        dest: "{{ project_dir }}/.env"
+        owner: "{{ deploy_user }}"
+        mode: "0600"
+      notify: restart gym-bot
+
+    # ── MongoDB ───────────────────────────────────────────────────────────────
+    - name: Start MongoDB via Docker Compose
+      become: false
+      command: docker compose up -d
+      args:
+        chdir: "{{ project_dir }}"
+
+    # ── Systemd service ───────────────────────────────────────────────────────
+    - name: Install gym-bot systemd service
+      template:
+        src: templates/gym-bot.service.j2
+        dest: /etc/systemd/system/gym-bot.service
+        mode: "0644"
+      notify: restart gym-bot
+
+    - name: Enable and start gym-bot
+      systemd:
+        name: gym-bot
+        enabled: true
+        state: started
+        daemon_reload: true
