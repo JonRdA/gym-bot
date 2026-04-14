@@ -72,23 +72,39 @@ with `GYMBOT_`:
 
 ### 2. Training config — per-user, stored in MongoDB
 
-Each user has one document in the `user_configs` collection describing their
-workouts, exercises and metrics. Shape:
+Each user has one document in the `user_configs` collection. It has two
+independent sections:
+
+- **`exercises`** — a catalog. Each exercise is defined **once**, with its list
+  of metrics. This is the single source of truth for "what does `pullup` mean".
+- **`workouts`** — named, ordered lists of exercise *names* (pointers into the
+  catalog). A workout is just a playlist.
 
 ```json
 {
   "user_id": 5947426856,
+  "exercises": {
+    "pullup":    { "metrics": ["reps", "weight"] },
+    "row":       { "metrics": ["reps"] },
+    "backsquat": { "metrics": ["rest", "reps", "weight"] },
+    "pushup":    { "metrics": ["reps"] }
+  },
   "workouts": {
-    "pull": {
-      "exercises": [
-        {"name": "pullup", "metrics": ["reps", "weight"], "track_rest": false},
-        {"name": "row",    "metrics": ["reps"],           "track_rest": false}
-      ]
-    },
-    "push": { "exercises": [ ... ] }
+    "pull":  ["pullup", "row"],
+    "lower": ["backsquat"],
+    "home":  ["pushup"]
   }
 }
 ```
+
+The loader rejects a config where any workout references an unknown exercise,
+and rejects any metric not in `METRIC_REGISTRY`.
+
+**Tracking rest time.** `rest` is a regular metric. Put it in an exercise's
+`metrics` list and it gets prompted alongside the others during `/add` — in
+the order you list it, so `[rest, reps, weight]` asks for rest first. Remove
+it (or comment it out in the YAML template) to stop tracking. Stored per set
+in `ExerciseSet.metrics["rest"]` like any other value.
 
 **Lifecycle**
 
@@ -106,10 +122,15 @@ There is no in-bot editor yet. Edit directly in `mongosh`:
 
 ```js
 use gym-bot
+// add a new exercise to the catalog
 db.user_configs.updateOne(
   { user_id: 5947426856 },
-  { $push: { "workouts.pull.exercises":
-      { name: "chin_up", metrics: ["reps", "weight"], track_rest: false } } }
+  { $set: { "exercises.chin_up": { metrics: ["reps", "weight"] } } }
+)
+// add it to the "pull" workout
+db.user_configs.updateOne(
+  { user_id: 5947426856 },
+  { $push: { "workouts.pull": "chin_up" } }
 )
 ```
 

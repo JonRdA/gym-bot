@@ -24,6 +24,10 @@ REPORT_REGISTRY: dict[tuple[str, ...], list[tuple[str, str]]] = {
         ("total_time", "Total Time"),
         ("max_time", "Max Time"),
     ],
+    ("rest",): [
+        ("avg_rest", "Avg Rest"),
+        ("min_rest", "Min Rest"),
+    ],
 }
 
 
@@ -65,6 +69,8 @@ class ExerciseReportingService:
             "max_weight": self._report_max_weight,
             "total_time": self._report_total_time,
             "max_time": self._report_max_time,
+            "avg_rest": self._report_avg_rest,
+            "min_rest": self._report_min_rest,
         }
 
         generator = generators.get(report_type)
@@ -175,6 +181,44 @@ class ExerciseReportingService:
             f"Last session: *{values[-1]}s*"
         )
         return {"text": text, "chart": _bar_chart(dates, values, title, "Total Time (s)")}
+
+    def _report_avg_rest(self, sessions: list[dict], exercise_name: str) -> dict:
+        dates, values = [], []
+        for s in sessions:
+            rests = [m.get("rest", 0) for m in s["sets"] if m.get("rest", 0) > 0]
+            if rests:
+                dates.append(s["date"])
+                values.append(sum(rests) / len(rests))
+
+        if not dates:
+            return {"text": f"No rest data found for {exercise_name}."}
+
+        title = f"{_title(exercise_name)}: Avg Rest (s)"
+        text = (
+            f"*{title}*\n\n"
+            f"Overall avg: *{sum(values) / len(values):,.0f}s*\n"
+            f"Last session: *{values[-1]:,.0f}s*"
+        )
+        return {"text": text, "chart": _bar_chart(dates, values, title, "Avg Rest (s)")}
+
+    def _report_min_rest(self, sessions: list[dict], exercise_name: str) -> dict:
+        dates, values = [], []
+        for s in sessions:
+            rests = [m.get("rest", 0) for m in s["sets"] if m.get("rest", 0) > 0]
+            if rests:
+                dates.append(s["date"])
+                values.append(min(rests))
+
+        if not dates:
+            return {"text": f"No rest data found for {exercise_name}."}
+
+        title = f"{_title(exercise_name)}: Min Rest (s)"
+        text = (
+            f"*{title}*\n\n"
+            f"All-time shortest: *{min(values)}s*\n"
+            f"Last session: *{values[-1]}s*"
+        )
+        return {"text": text, "chart": _bar_chart(dates, values, title, "Min Rest (s)")}
 
     def _report_max_time(self, sessions: list[dict], exercise_name: str) -> dict:
         dates, values = [], []

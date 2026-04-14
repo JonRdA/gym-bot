@@ -1,14 +1,14 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from gym_bot.config.models import WorkoutConfig
+from gym_bot.config.models import ExerciseConfig
 from gym_bot.domain.models import Exercise, ExerciseSet, Training, Workout
 
 
 @dataclass
 class AddTrainingState:
     training: Optional[Training] = None
-    current_workout_config: Optional[WorkoutConfig] = None
+    current_exercises: list[tuple[str, ExerciseConfig]] = field(default_factory=list)
     current_workout: Optional[Workout] = None
     current_exercise_idx: int = 0
     current_exercise: Optional[Exercise] = None

@@ -1,104 +1,45 @@
+# Training config template for new users.
+#
+# Two sections:
+#   - exercises: the catalog — each exercise defined ONCE with its metrics
+#   - workouts:  named lists of exercise references (ordered)
+#
+# To track rest time per set for an exercise, include `rest` in its metrics.
+# Metric order controls prompt order during /add, so put `rest` first if you
+# want to enter it at the start of each set. Comment it out to stop tracking.
+
+exercises:
+  # --- pull ---
+  pullup:       { metrics: [reps, weight] }
+  row:          { metrics: [reps] }
+  biceps_curl:  { metrics: [reps, weight] }
+
+  # --- push ---
+  pike_pushup:  { metrics: [reps] }
+  pushup:       { metrics: [reps] }
+
+  # --- lower ---
+  backsquat:      { metrics: [rest, reps, weight] }
+  deadlift:       { metrics: [rest, reps, weight] }
+  jefferson_curl: { metrics: [reps, weight] }
+  goodmorning:    { metrics: [reps, weight] }
+
+  # --- handstand / isometric ---
+  chest2wall:   { metrics: [time] }
+
+  # --- home ---
+  rice_bucket:    { metrics: [time] }
+  squat2sissy:    { metrics: [reps, feet2floor] }
+  heel_elevation: { metrics: [reps, weight] }
+  towel_roll:     { metrics: [reps, weight] }
+
+  # --- cardio ---
+  run:          { metrics: [time, distance] }
+
 workouts:
-  # upper body 
-  pull:
-    exercises:
-      - name: pullup
-        metrics:
-          - reps
-          - weight
-      - name: row
-        metrics:
-          - reps
-      - name: biceps_curl
-        metrics:
-          - reps
-          - weight
-
-  push:
-    exercises:
-      # - name: dip
-        # track_rest: true
-        # metrics:
-          # - reps
-      - name: pike_pushup
-        metrics:
-          - reps
-      - name: pushup
-        metrics:
-          - reps
-
-  # frontsplit:
-  #   exercises:
-      # - name: wide_split_squat
-      #   metrics:
-      #     - reps
-      #     - thigh2floor
-
-  lower:
-    exercises:
-      # - name: cossack_squat
-      #   metrics:
-      #     - reps
-      #     - weight
-      # - name: shrimp
-      #   metrics:
-      #     - reps
-      #     - knee2floor
-      # - name: stride_stance_deadlift
-      #   metrics:
-      #     - reps
-      #     - weight
-      - name: backsquat
-        metrics:
-          - reps
-          - weight
-      - name: jefferson_curl
-        metrics:
-          - reps
-          - weight
-      - name: goodmorning
-        metrics:
-          - reps
-          - weight
-      - name: deadlift
-        metrics:
-          - reps
-          - weight
-
-  handstand:
-    exercises:
-      # - name: bridge
-      #   metrics:
-      #     - time
-      #     - feet2floor
-      - name: chest2wall
-        metrics:
-          - time
-
-  home:
-    exercises:
-      - name: rice_bucket
-        metrics:
-          - time
-      - name: squat2sissy
-        metrics:
-          - reps
-          - feet2floor
-      - name: heel_elevation
-        metrics:
-          - reps
-          - weight
-      - name: towel_roll
-        metrics:
-          - reps
-          - weight
-      - name: pushup
-        metrics:
-          - reps
-
-  run:
-    exercises:
-      - name: run
-        metrics:
-          - time
-          - distance
+  pull:      [pullup, row, biceps_curl]
+  push:      [pike_pushup, pushup]
+  lower:     [backsquat, jefferson_curl, goodmorning, deadlift]
+  handstand: [chest2wall]
+  home:      [rice_bucket, squat2sissy, heel_elevation, towel_roll, pushup]
+  run:       [run]

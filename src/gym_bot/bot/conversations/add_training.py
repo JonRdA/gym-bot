@@ -46,32 +46,18 @@ async def _prompt_workout_selection(update: Update, context: CallbackContext):
 
 async def _prompt_current_exercise(update: Update, context: CallbackContext):
     state = get_add_state(context)
-    exercise_config = state.current_workout_config.exercises[state.current_exercise_idx]
+    name, config = state.current_exercises[state.current_exercise_idx]
 
-    state.current_exercise = Exercise(name=exercise_config.name)
+    state.current_exercise = Exercise(name=name)
 
-    if exercise_config.track_rest:
-        name = exercise_config.name.replace("_", " ").title()
-        await update.effective_message.reply_text(
-            messages.PROMPT_REST_TIME.format(exercise_name=name)
-        )
-    else:
-        await _prompt_sets(update, context)
-
-    return PROCESSING_EXERCISES
-
-
-async def _prompt_sets(update: Update, context: CallbackContext):
-    state = get_add_state(context)
-    exercise_config = state.current_workout_config.exercises[state.current_exercise_idx]
-
-    title = exercise_config.name.replace("_", " ").title()
-    metric_names = format_metric_prompt(exercise_config.metrics)
+    title = name.replace("_", " ").title()
+    metric_names = format_metric_prompt(config.metrics)
 
     await update.effective_message.reply_text(
         messages.PROMPT_SETS.format(exercise_title=title, metric_names=metric_names),
         parse_mode="MarkdownV2",
     )
+    return PROCESSING_EXERCISES
 
 
 # --- Entry / Exit ---
@@ -148,16 +134,16 @@ async def selected_workout(update: Update, context: CallbackContext):
     services = get_services(context)
 
     config = await services.config.get_config(user_id)
-    workout_config = config.get_workout(workout_name)
+    exercises = config.resolve_workout(workout_name)
 
-    if not workout_config or not workout_config.exercises:
+    if not exercises:
         await query.edit_message_text(
             messages.ERROR_NO_EXERCISES.format(workout_name=workout_name)
         )
         return SELECTING_WORKOUT
 
     state = get_add_state(context)
-    state.current_workout_config = workout_config
+    state.current_exercises = exercises
     state.current_workout = Workout(name=workout_name, completed=True)
     state.current_exercise_idx = 0
     state.last_set = None
@@ -201,35 +187,10 @@ async def received_completion(update: Update, context: CallbackContext):
     return await _prompt_current_exercise(update, context)
 
 
-async def received_text_in_exercise(update: Update, context: CallbackContext):
+async def received_set(update: Update, context: CallbackContext):
     state = get_add_state(context)
-    exercise_config = state.current_workout_config.exercises[state.current_exercise_idx]
-
-    # Route: rest time or set data
-    if exercise_config.track_rest and state.current_exercise.rest_time is None:
-        return await _handle_rest_time(update, context)
-    return await _handle_set(update, context)
-
-
-async def _handle_rest_time(update: Update, context: CallbackContext):
-    try:
-        rest_time = int(update.message.text.strip())
-        if rest_time < 0:
-            raise ValueError
-    except (ValueError, TypeError):
-        await update.message.reply_text("Enter a valid number of seconds.")
-        return PROCESSING_EXERCISES
-
-    state = get_add_state(context)
-    state.current_exercise.rest_time = rest_time
-    await _prompt_sets(update, context)
-    return PROCESSING_EXERCISES
-
-
-async def _handle_set(update: Update, context: CallbackContext):
-    state = get_add_state(context)
-    exercise_config = state.current_workout_config.exercises[state.current_exercise_idx]
-    metrics = exercise_config.metrics
+    _, config = state.current_exercises[state.current_exercise_idx]
+    metrics = config.metrics
     values = update.message.text.strip().split()
 
     if len(values) != len(metrics):
@@ -267,13 +228,12 @@ async def done_command(update: Update, context: CallbackContext):
     state.last_set = None
     state.current_exercise_idx += 1
 
-    if state.current_exercise_idx < len(state.current_workout_config.exercises):
+    if state.current_exercise_idx < len(state.current_exercises):
         return await _prompt_current_exercise(update, context)
 
-    # All exercises done for this workout
     state.training.workouts.append(state.current_workout)
     state.current_workout = None
-    state.current_workout_config = None
+    state.current_exercises = []
 
     return await _prompt_workout_selection(update, context)
 
@@ -311,7 +271,7 @@ def build_add_training_handler() -> ConversationHandler:
             PROCESSING_EXERCISES: [
                 CommandHandler("done", done_command),
                 CommandHandler("repeat", repeat_command),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, received_text_in_exercise),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_set),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_command)],

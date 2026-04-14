@@ -79,11 +79,15 @@ class UserConfigRepository:
     async def find_by_user_id(self, user_id: int) -> Optional[dict]:
         return await self._col.find_one({"user_id": user_id})
 
-    async def upsert(self, user_id: int, workouts: dict) -> None:
+    async def upsert(self, user_id: int, *, exercises: dict, workouts: dict) -> None:
         await self._col.update_one(
             {"user_id": user_id},
             {
-                "$set": {"user_id": user_id, "workouts": workouts},
+                "$set": {
+                    "user_id": user_id,
+                    "exercises": exercises,
+                    "workouts": workouts,
+                },
                 "$currentDate": {"updated_at": True},
                 "$setOnInsert": {"created_at": datetime.now(timezone.utc)},
             },

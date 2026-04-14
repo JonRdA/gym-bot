@@ -10,7 +10,6 @@ PROMPT_DURATION = "Training duration in minutes?"
 PROMPT_WORKOUT_FIRST = "Let's add the first workout."
 PROMPT_WORKOUT_NEXT = "Add another workout, or finish."
 PROMPT_COMPLETION = "Did you complete this workout?"
-PROMPT_REST_TIME = "Rest time in seconds for {exercise_name}?"
 PROMPT_SETS = (
     "Enter sets for *{exercise_title}*\\.\n"
     "Format: `{metric_names}`\n"
