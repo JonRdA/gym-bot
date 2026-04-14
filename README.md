@@ -84,10 +84,10 @@ independent sections:
 {
   "user_id": 5947426856,
   "exercises": {
-    "pullup":    { "metrics": ["reps", "weight"] },
-    "row":       { "metrics": ["reps"] },
-    "backsquat": { "metrics": ["rest", "reps", "weight"] },
-    "pushup":    { "metrics": ["reps"] }
+    "pullup":    { "metrics": ["reps", "weight"], "track_rest": false },
+    "row":       { "metrics": ["reps"],           "track_rest": false },
+    "backsquat": { "metrics": ["reps", "weight"], "track_rest": true  },
+    "pushup":    { "metrics": ["reps"],           "track_rest": false }
   },
   "workouts": {
     "pull":  ["pullup", "row"],
@@ -100,11 +100,11 @@ independent sections:
 The loader rejects a config where any workout references an unknown exercise,
 and rejects any metric not in `METRIC_REGISTRY`.
 
-**Tracking rest time.** `rest` is a regular metric. Put it in an exercise's
-`metrics` list and it gets prompted alongside the others during `/add` — in
-the order you list it, so `[rest, reps, weight]` asks for rest first. Remove
-it (or comment it out in the YAML template) to stop tracking. Stored per set
-in `ExerciseSet.metrics["rest"]` like any other value.
+**Tracking rest time.** Rest is a *per-exercise-per-session* value, not a
+set-level metric — you enter it once (e.g. "180s between sets of squats
+today") and it's stored on the `Exercise`. Enable it by setting
+`track_rest: true` on the catalog entry. During `/add` the bot prompts once
+at the start of the exercise, before any set. Disable by removing the flag.
 
 **Lifecycle**
 
@@ -112,29 +112,24 @@ in `ExerciseSet.metrics["rest"]` like any other value.
    the cache, then Mongo, and — if the user is unknown — copies
    `training_config_default.yaml` into a fresh document.
 2. From that moment the user's config is independent of the YAML template.
-   Changing the YAML only affects *future* new users.
-3. Configs are cached in-process (`TTLCache`, 1h TTL, 100 entries) to avoid
-   hitting Mongo on every message.
+   Changing the YAML only affects *future* new users — **unless** that user
+   is the designated owner (see below).
+3. Configs are cached in-process (plain dict, refilled at startup).
 
-**Editing a user's config (for now)**
+**Owner mode (single-user / personal use)**
 
-There is no in-bot editor yet. Edit directly in `mongosh`:
+Set `GYMBOT_OWNER_USER_ID` to your Telegram user id. On every startup the bot
+reads `training_config_default.yaml` and upserts it into that user's Mongo
+document, overwriting whatever was there. Workflow:
 
-```js
-use gym-bot
-// add a new exercise to the catalog
-db.user_configs.updateOne(
-  { user_id: 5947426856 },
-  { $set: { "exercises.chin_up": { metrics: ["reps", "weight"] } } }
-)
-// add it to the "pull" workout
-db.user_configs.updateOne(
-  { user_id: 5947426856 },
-  { $push: { "workouts.pull": "chin_up" } }
-)
+```bash
+$EDITOR training_config_default.yaml   # comment out pullups this month
+docker compose restart                 # or: systemctl restart gym-bot
 ```
 
-Then invalidate the cache by restarting the bot (or wait up to 1h).
+Other users (if any) are untouched — they still use whatever was seeded on
+their first `/add`. Leave `GYMBOT_OWNER_USER_ID` unset to run in pure
+multi-user mode (seed-on-first-run, no sync, no rewrites).
 
 **Metric validation**
 

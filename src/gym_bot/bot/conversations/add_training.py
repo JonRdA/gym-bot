@@ -16,6 +16,7 @@ from gym_bot.bot.services import get_services
 from gym_bot.bot.callbacks import ADD_WORKOUT, COMPLETED, FINISH_TRAINING, parse_callback
 from gym_bot.bot.keyboards import completion_keyboard, workout_selection_keyboard
 from gym_bot.bot.state import clear_add_state, get_add_state
+from gym_bot.config.models import ExerciseConfig
 from gym_bot.domain.metrics import METRIC_REGISTRY, format_metric_prompt
 from gym_bot.domain.models import Exercise, ExerciseSet, Training, Workout
 
@@ -49,15 +50,27 @@ async def _prompt_current_exercise(update: Update, context: CallbackContext):
     name, config = state.current_exercises[state.current_exercise_idx]
 
     state.current_exercise = Exercise(name=name)
-
     title = name.replace("_", " ").title()
-    metric_names = format_metric_prompt(config.metrics)
 
+    if config.track_rest:
+        await update.effective_message.reply_text(
+            messages.PROMPT_REST_TIME.format(exercise_title=title),
+            parse_mode="MarkdownV2",
+        )
+    else:
+        await _prompt_sets(update, title, config.metrics)
+
+    return PROCESSING_EXERCISES
+
+
+async def _prompt_sets(update: Update, title: str, metrics: list[str]) -> None:
     await update.effective_message.reply_text(
-        messages.PROMPT_SETS.format(exercise_title=title, metric_names=metric_names),
+        messages.PROMPT_SETS.format(
+            exercise_title=title,
+            metric_names=format_metric_prompt(metrics),
+        ),
         parse_mode="MarkdownV2",
     )
-    return PROCESSING_EXERCISES
 
 
 # --- Entry / Exit ---
@@ -187,9 +200,35 @@ async def received_completion(update: Update, context: CallbackContext):
     return await _prompt_current_exercise(update, context)
 
 
-async def received_set(update: Update, context: CallbackContext):
+async def received_exercise_text(update: Update, context: CallbackContext):
     state = get_add_state(context)
-    _, config = state.current_exercises[state.current_exercise_idx]
+    name, config = state.current_exercises[state.current_exercise_idx]
+
+    if config.track_rest and state.current_exercise.rest is None:
+        return await _handle_rest(update, context, name, config)
+    return await _handle_set(update, context, config)
+
+
+async def _handle_rest(
+    update: Update, context: CallbackContext, name: str, config: ExerciseConfig
+) -> int:
+    try:
+        rest = int(update.message.text.strip())
+        if rest < 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        await update.message.reply_text(messages.ERROR_INVALID_REST)
+        return PROCESSING_EXERCISES
+
+    state = get_add_state(context)
+    state.current_exercise.rest = rest
+    title = name.replace("_", " ").title()
+    await _prompt_sets(update, title, config.metrics)
+    return PROCESSING_EXERCISES
+
+
+async def _handle_set(update: Update, context: CallbackContext, config: ExerciseConfig) -> int:
+    state = get_add_state(context)
     metrics = config.metrics
     values = update.message.text.strip().split()
 
@@ -271,7 +310,7 @@ def build_add_training_handler() -> ConversationHandler:
             PROCESSING_EXERCISES: [
                 CommandHandler("done", done_command),
                 CommandHandler("repeat", repeat_command),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, received_set),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_exercise_text),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_command)],

@@ -70,27 +70,3 @@ class TrainingRepository:
     async def _execute(self, query: dict) -> list[Training]:
         cursor = self._col.find(query).sort("date", -1)
         return [Training(**doc) async for doc in cursor]
-
-
-class UserConfigRepository:
-    def __init__(self, db: Database):
-        self._col = db.user_configs
-
-    async def find_by_user_id(self, user_id: int) -> Optional[dict]:
-        return await self._col.find_one({"user_id": user_id})
-
-    async def upsert(self, user_id: int, *, exercises: dict, workouts: dict) -> None:
-        await self._col.update_one(
-            {"user_id": user_id},
-            {
-                "$set": {
-                    "user_id": user_id,
-                    "exercises": exercises,
-                    "workouts": workouts,
-                },
-                "$currentDate": {"updated_at": True},
-                "$setOnInsert": {"created_at": datetime.now(timezone.utc)},
-            },
-            upsert=True,
-        )
-        logger.info("Upserted config for user %s", user_id)

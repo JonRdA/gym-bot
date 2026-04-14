@@ -7,5 +7,6 @@ class Settings(BaseSettings):
     mongo_database: str = "gym-bot"
     default_config_path: str = "training_config_default.yaml"
     excluded_workouts: list[str] = ["home"]
+    owner_user_id: int | None = None
 
     model_config = {"env_prefix": "GYMBOT_", "env_file": ".env"}

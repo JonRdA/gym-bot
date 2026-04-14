@@ -5,9 +5,9 @@ from telegram.warnings import PTBUserWarning
 
 from gym_bot.bot.app import build_application
 from gym_bot.bot.services import Services
-from gym_bot.config.service import UserConfigService, load_default_config
+from gym_bot.config.service import UserConfigService
 from gym_bot.db.mongo import Database
-from gym_bot.db.repositories import TrainingRepository, UserConfigRepository
+from gym_bot.db.repositories import TrainingRepository
 from gym_bot.reporting.exercise_reports import ExerciseReportingService
 from gym_bot.reporting.service import ReportingService
 from gym_bot.settings import Settings
@@ -33,11 +33,11 @@ def main() -> None:
     logger.info("Starting gym-bot")
 
     db = Database(settings.mongo_uri, settings.mongo_database)
-    default_workouts = load_default_config(settings.default_config_path)
 
     training_repo = TrainingRepository(db)
-    config_repo = UserConfigRepository(db)
-    config_service = UserConfigService(config_repo, default_workouts)
+    config_service = UserConfigService(
+        db, settings.default_config_path, settings.owner_user_id
+    )
     reporting_service = ReportingService(training_repo, settings)
     exercise_reporting = ExerciseReportingService(training_repo, config_service)
 
@@ -54,6 +54,7 @@ def main() -> None:
     async def post_init(_app):
         await db.ping()
         await db.ensure_indexes()
+        await config_service.sync_owner()
 
     app.post_init = post_init
 

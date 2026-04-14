@@ -34,6 +34,7 @@ class ExerciseSet(BaseModel):
 class Exercise(BaseModel):
     model_config = _BASE_CONFIG
     name: str
+    rest: Optional[int] = None
     sets: list[ExerciseSet] = []
 
 

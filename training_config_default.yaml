@@ -4,23 +4,25 @@
 #   - exercises: the catalog — each exercise defined ONCE with its metrics
 #   - workouts:  named lists of exercise references (ordered)
 #
-# To track rest time per set for an exercise, include `rest` in its metrics.
-# Metric order controls prompt order during /add, so put `rest` first if you
-# want to enter it at the start of each set. Comment it out to stop tracking.
+# To track rest time for an exercise, set `track_rest: true`. You will be
+# prompted once at the start of the exercise during /add for the rest value
+# (seconds between sets). Remove/comment the flag to stop tracking.
 
 exercises:
   # --- pull ---
+  # pullup:       { metrics: [reps, weight], track_rest: true }
   pullup:       { metrics: [reps, weight] }
   row:          { metrics: [reps] }
   biceps_curl:  { metrics: [reps, weight] }
 
   # --- push ---
-  pike_pushup:  { metrics: [reps] }
-  pushup:       { metrics: [reps] }
+  pike_pushup:       { metrics: [reps] }
+  pushup:            { metrics: [reps] }
+  triceps_extension: { metrics: [reps, weight] }
 
   # --- lower ---
-  backsquat:      { metrics: [rest, reps, weight] }
-  deadlift:       { metrics: [rest, reps, weight] }
+  backsquat:      { metrics: [reps, weight] }
+  deadlift:       { metrics: [reps, weight] }
   jefferson_curl: { metrics: [reps, weight] }
   goodmorning:    { metrics: [reps, weight] }
 
@@ -38,8 +40,8 @@ exercises:
 
 workouts:
   pull:      [pullup, row, biceps_curl]
-  push:      [pike_pushup, pushup]
-  lower:     [backsquat, jefferson_curl, goodmorning, deadlift]
+  push:      [pike_pushup, pushup, triceps_extension]
+  lower:     [backsquat, jefferson_curl, deadlift]
   handstand: [chest2wall]
   home:      [rice_bucket, squat2sissy, heel_elevation, towel_roll, pushup]
   run:       [run]

@@ -24,11 +24,9 @@ REPORT_REGISTRY: dict[tuple[str, ...], list[tuple[str, str]]] = {
         ("total_time", "Total Time"),
         ("max_time", "Max Time"),
     ],
-    ("rest",): [
-        ("avg_rest", "Avg Rest"),
-        ("min_rest", "Min Rest"),
-    ],
 }
+
+REST_REPORT = ("rest_trend", "Rest")
 
 
 class ExerciseReportingService:
@@ -49,6 +47,8 @@ class ExerciseReportingService:
         for required, report_list in REPORT_REGISTRY.items():
             if metrics.issuperset(required):
                 reports.extend(report_list)
+        if exercise_config.track_rest:
+            reports.append(REST_REPORT)
         return sorted(set(reports))
 
     async def generate_report(
@@ -69,8 +69,7 @@ class ExerciseReportingService:
             "max_weight": self._report_max_weight,
             "total_time": self._report_total_time,
             "max_time": self._report_max_time,
-            "avg_rest": self._report_avg_rest,
-            "min_rest": self._report_min_rest,
+            "rest_trend": self._report_rest_trend,
         }
 
         generator = generators.get(report_type)
@@ -94,13 +93,16 @@ class ExerciseReportingService:
         sessions = []
         for training in trainings:
             sets = []
+            rest = None
             for workout in training.workouts:
                 if workout.name in relevant_workouts:
                     for exercise in workout.exercises:
                         if exercise.name == exercise_name:
                             sets.extend(s.metrics for s in exercise.sets)
+                            if exercise.rest is not None:
+                                rest = exercise.rest
             if sets:
-                sessions.append({"date": training.date, "sets": sets})
+                sessions.append({"date": training.date, "sets": sets, "rest": rest})
 
         return sorted(sessions, key=lambda x: x["date"])
 
@@ -182,43 +184,24 @@ class ExerciseReportingService:
         )
         return {"text": text, "chart": _bar_chart(dates, values, title, "Total Time (s)")}
 
-    def _report_avg_rest(self, sessions: list[dict], exercise_name: str) -> dict:
+    def _report_rest_trend(self, sessions: list[dict], exercise_name: str) -> dict:
         dates, values = [], []
         for s in sessions:
-            rests = [m.get("rest", 0) for m in s["sets"] if m.get("rest", 0) > 0]
-            if rests:
+            if s.get("rest") is not None:
                 dates.append(s["date"])
-                values.append(sum(rests) / len(rests))
+                values.append(s["rest"])
 
         if not dates:
             return {"text": f"No rest data found for {exercise_name}."}
 
-        title = f"{_title(exercise_name)}: Avg Rest (s)"
+        title = f"{_title(exercise_name)}: Rest (s)"
         text = (
             f"*{title}*\n\n"
             f"Overall avg: *{sum(values) / len(values):,.0f}s*\n"
-            f"Last session: *{values[-1]:,.0f}s*"
-        )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Avg Rest (s)")}
-
-    def _report_min_rest(self, sessions: list[dict], exercise_name: str) -> dict:
-        dates, values = [], []
-        for s in sessions:
-            rests = [m.get("rest", 0) for m in s["sets"] if m.get("rest", 0) > 0]
-            if rests:
-                dates.append(s["date"])
-                values.append(min(rests))
-
-        if not dates:
-            return {"text": f"No rest data found for {exercise_name}."}
-
-        title = f"{_title(exercise_name)}: Min Rest (s)"
-        text = (
-            f"*{title}*\n\n"
-            f"All-time shortest: *{min(values)}s*\n"
+            f"Shortest: *{min(values)}s*\n"
             f"Last session: *{values[-1]}s*"
         )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Min Rest (s)")}
+        return {"text": text, "chart": _bar_chart(dates, values, title, "Rest (s)")}
 
     def _report_max_time(self, sessions: list[dict], exercise_name: str) -> dict:
         dates, values = [], []

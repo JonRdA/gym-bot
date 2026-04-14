@@ -6,6 +6,7 @@ from gym_bot.domain.metrics import METRIC_REGISTRY
 class ExerciseConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     metrics: list[str]
+    track_rest: bool = False
 
     @field_validator("metrics")
     @classmethod
