@@ -21,6 +21,32 @@ logger = logging.getLogger(__name__)
 SELECT_WORKOUT = 0
 
 
+def _filter_keyboard(workout_names: list[str]) -> InlineKeyboardMarkup:
+    buttons = [
+        InlineKeyboardButton(
+            name.replace("_", " ").lower(),
+            callback_data=make_callback(CALENDAR_FILTER, name),
+        )
+        for name in workout_names
+    ]
+    rows = chunk_buttons(buttons, 3)
+    rows.append([InlineKeyboardButton("All", callback_data=make_callback(CALENDAR_FILTER, "all"))])
+    return InlineKeyboardMarkup(rows)
+
+
+async def _render(user_id: int, months: int, workout_filter: Optional[str], services) -> str:
+    now = datetime.now()
+    calendars = []
+    for i in range(months):
+        target = now - relativedelta(months=i)
+        cal_str = await services.reporting.generate_activity_calendar(
+            user_id, target.year, target.month, workout_filter
+        )
+        if cal_str:
+            calendars.append(cal_str)
+    return "\n\n".join(calendars) if calendars else "No activity found."
+
+
 async def calendar_start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     services = get_services(context)
@@ -33,24 +59,17 @@ async def calendar_start(update: Update, context: CallbackContext):
     set_calendar_months(context, months)
 
     config = await services.config.get_config(user_id)
-    buttons = [
-        InlineKeyboardButton(
-            name.replace("_", " ").lower(),
-            callback_data=make_callback(CALENDAR_FILTER, name),
-        )
-        for name in config.workout_names
-    ]
-    rows = chunk_buttons(buttons, 3)
-    rows.append([InlineKeyboardButton("All Workouts", callback_data=make_callback(CALENDAR_FILTER, "all"))])
+    text = await _render(user_id, months, None, services)
 
     await update.message.reply_text(
-        "Which workout type for the calendar?",
-        reply_markup=InlineKeyboardMarkup(rows),
+        text,
+        parse_mode="MarkdownV2",
+        reply_markup=_filter_keyboard(config.workout_names),
     )
     return SELECT_WORKOUT
 
 
-async def display_calendar(update: Update, context: CallbackContext):
+async def filter_calendar(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
@@ -60,24 +79,16 @@ async def display_calendar(update: Update, context: CallbackContext):
 
     workout_filter: Optional[str] = None if filter_choice == "all" else filter_choice
     months = get_calendar_months(context)
-    now = datetime.now()
 
-    calendars = []
-    for i in range(months):
-        target = now - relativedelta(months=i)
-        cal_str = await services.reporting.generate_activity_calendar(
-            user_id, target.year, target.month, workout_filter
-        )
-        if cal_str:
-            calendars.append(cal_str)
+    config = await services.config.get_config(user_id)
+    text = await _render(user_id, months, workout_filter, services)
 
-    if not calendars:
-        await query.edit_message_text("No activity found for this filter.")
-    else:
-        await query.edit_message_text("\n\n".join(calendars), parse_mode="MarkdownV2")
-
-    clear_calendar_state(context)
-    return ConversationHandler.END
+    await query.edit_message_text(
+        text,
+        parse_mode="MarkdownV2",
+        reply_markup=_filter_keyboard(config.workout_names),
+    )
+    return SELECT_WORKOUT
 
 
 async def cancel_calendar(update: Update, context: CallbackContext):
@@ -91,7 +102,7 @@ def build_calendar_handler() -> ConversationHandler:
         entry_points=[CommandHandler("calendar", calendar_start)],
         states={
             SELECT_WORKOUT: [
-                CallbackQueryHandler(display_calendar, pattern=rf"^{CALENDAR_FILTER}:"),
+                CallbackQueryHandler(filter_calendar, pattern=rf"^{CALENDAR_FILTER}:"),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_calendar)],
