@@ -1,2 +1,10 @@
 project_dir: /opt/gym-bot
-deploy_user: pi           # must match ansible_user in inventory.ini
+repo_url: https://github.com/JonRdA/gym-bot.git
+repo_branch: main
+
+# User that SSHes in and runs Ansible (must have sudo).
+deploy_user: pi
+
+# Dedicated system user that owns the files and runs the service.
+# Created automatically by the playbook — no login shell, no home dir.
+service_user: gymbot

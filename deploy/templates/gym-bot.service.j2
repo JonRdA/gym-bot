@@ -4,7 +4,7 @@ After=network.target docker.service
 Requires=docker.service
 
 [Service]
-User={{ deploy_user }}
+User={{ service_user }}
 WorkingDirectory={{ project_dir }}
 EnvironmentFile={{ project_dir }}/.env
 ExecStart={{ project_dir }}/.venv/bin/python -m gym_bot

@@ -15,15 +15,63 @@
 
   tasks:
     # ── System ────────────────────────────────────────────────────────────────
-    - name: Install system packages
+    - name: Install base packages
       apt:
         name:
           - python3
           - python3-venv
           - python3-pip
+          - git
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+
+    # Docker official repo — avoids conflicts between debian's containerd and
+    # docker's containerd.io packages.
+    - name: Remove Debian Docker packages that conflict with official ones
+      apt:
+        name:
           - docker.io
+          - docker-doc
+          - docker-compose
+          - podman-docker
+          - containerd
+          - runc
+        state: absent
+
+    - name: Create /etc/apt/keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Docker GPG key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/debian/gpg \
+          -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+      args:
+        creates: /etc/apt/keyrings/docker.asc
+
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: >-
+          deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}
+          signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/debian
+          {{ ansible_distribution_release }} stable
+        filename: docker
+        state: present
+
+    - name: Install Docker packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
           - docker-compose-plugin
-          - rsync
         state: present
         update_cache: true
 
@@ -33,9 +81,12 @@
         enabled: true
         state: started
 
-    - name: Add deploy user to docker group
+    - name: Create gymbot system user
       user:
-        name: "{{ deploy_user }}"
+        name: "{{ service_user }}"
+        system: true
+        shell: /usr/sbin/nologin
+        create_home: false
         groups: docker
         append: true
 
@@ -44,34 +95,28 @@
       file:
         path: "{{ project_dir }}"
         state: directory
-        owner: "{{ deploy_user }}"
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
         mode: "0755"
 
-    - name: Sync project files
-      become: false
-      synchronize:
-        src: ../
-        dest: "{{ project_dir }}/"
-        delete: true
-        rsync_opts:
-          - "--exclude=.git"
-          - "--exclude=.venv"
-          - "--exclude=.env"
-          - "--exclude=mongo-data"
-          - "--exclude=trainings_backup"
-          - "--exclude=__pycache__"
-          - "--exclude=*.pyc"
-          - "--exclude=.pytest_cache"
-          - "--exclude=deploy/vault.yml"
+    - name: Clone / update repository
+      become_user: "{{ service_user }}"
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_dir }}"
+        version: "{{ repo_branch }}"
+        force: true
       notify: restart gym-bot
 
     # ── Python env ────────────────────────────────────────────────────────────
     - name: Create virtual environment
+      become_user: "{{ service_user }}"
       command: python3 -m venv {{ project_dir }}/.venv
       args:
         creates: "{{ project_dir }}/.venv"
 
     - name: Install project into venv
+      become_user: "{{ service_user }}"
       pip:
         name: "{{ project_dir }}"
         virtualenv: "{{ project_dir }}/.venv"
@@ -84,13 +129,14 @@
       template:
         src: templates/env.j2
         dest: "{{ project_dir }}/.env"
-        owner: "{{ deploy_user }}"
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
         mode: "0600"
       notify: restart gym-bot
 
     # ── MongoDB ───────────────────────────────────────────────────────────────
     - name: Start MongoDB via Docker Compose
-      become: false
+      become_user: "{{ service_user }}"
       command: docker compose up -d
       args:
         chdir: "{{ project_dir }}"
