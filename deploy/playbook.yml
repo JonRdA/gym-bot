@@ -135,6 +135,14 @@
       notify: restart gym-bot
 
     # ── MongoDB ───────────────────────────────────────────────────────────────
+    - name: Write .mongo.env file
+      template:
+        src: templates/mongo_env.j2
+        dest: "{{ project_dir }}/.mongo.env"
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0600"
+
     - name: Start MongoDB via Docker Compose
       become_user: "{{ service_user }}"
       command: docker compose up -d
