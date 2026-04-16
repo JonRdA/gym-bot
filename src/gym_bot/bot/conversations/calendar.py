@@ -4,6 +4,7 @@ from typing import Optional
 
 from dateutil.relativedelta import relativedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import BadRequest
 from telegram.ext import (
     CallbackContext,
     CallbackQueryHandler,
@@ -83,11 +84,15 @@ async def filter_calendar(update: Update, context: CallbackContext):
     config = await services.config.get_config(user_id)
     text = await _render(user_id, months, workout_filter, services)
 
-    await query.edit_message_text(
-        text,
-        parse_mode="MarkdownV2",
-        reply_markup=_filter_keyboard(config.workout_names),
-    )
+    try:
+        await query.edit_message_text(
+            text,
+            parse_mode="MarkdownV2",
+            reply_markup=_filter_keyboard(config.workout_names),
+        )
+    except BadRequest as e:
+        if "Message is not modified" not in str(e):
+            raise
     return SELECT_WORKOUT
 
 
