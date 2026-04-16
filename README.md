@@ -1,3 +1,5 @@
+# todo
+`ansible-playbook deploy/playbook.yml -i deploy/inventory.ini --ask-vault-pass --ask-pass`
 # Gym Bot
 
 A Telegram bot for logging personal workout sessions. Users combine pre-configured

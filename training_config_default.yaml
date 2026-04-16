@@ -26,8 +26,11 @@ exercises:
   jefferson_curl: { metrics: [reps, weight] }
   goodmorning:    { metrics: [reps, weight] }
 
-  # --- handstand / isometric ---
+  # --- handstand ---
   chest2wall:   { metrics: [time] }
+
+  # --- pancake ---
+  straddle_jefferson_curl: { metrics: [reps, weight] }
 
   # --- home ---
   rice_bucket:    { metrics: [time] }
@@ -43,5 +46,6 @@ workouts:
   push:      [pike_pushup, pushup, triceps_extension]
   lower:     [backsquat, jefferson_curl, deadlift]
   handstand: [chest2wall]
-  home:      [rice_bucket, squat2sissy, heel_elevation, towel_roll, pushup]
+  pancake:   [straddle_jefferson_curl]
   run:       [run]
+  # home:      [rice_bucket, squat2sissy, heel_elevation, towel_roll, pushup]
