@@ -33,10 +33,10 @@ exercises:
   straddle_jefferson_curl: { metrics: [reps, weight] }
 
   # --- home ---
-  rice_bucket:    { metrics: [time] }
-  squat2sissy:    { metrics: [reps, feet2floor] }
-  heel_elevation: { metrics: [reps, weight] }
-  towel_roll:     { metrics: [reps, weight] }
+  # rice_bucket:    { metrics: [time] }
+  # squat2sissy:    { metrics: [reps, feet2floor] }
+  # heel_elevation: { metrics: [reps, weight] }
+  # towel_roll:     { metrics: [reps, weight] }
 
   # --- cardio ---
   run:          { metrics: [time, distance] }
