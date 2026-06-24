@@ -25,7 +25,6 @@ class ReportState:
 
 _ADD_KEY = "_add_training"
 _REPORT_KEY = "_exercise_report"
-_CALENDAR_KEY = "_calendar"
 
 
 def get_add_state(context) -> AddTrainingState:
@@ -46,15 +45,3 @@ def get_report_state(context) -> ReportState:
 
 def clear_report_state(context) -> None:
     context.user_data.pop(_REPORT_KEY, None)
-
-
-def get_calendar_months(context) -> int:
-    return context.user_data.get(_CALENDAR_KEY, 1)
-
-
-def set_calendar_months(context, months: int) -> None:
-    context.user_data[_CALENDAR_KEY] = months
-
-
-def clear_calendar_state(context) -> None:
-    context.user_data.pop(_CALENDAR_KEY, None)
