@@ -11,20 +11,14 @@
 exercises:
   # --- pull ---
   # pullup:       { metrics: [reps, weight], track_rest: true }
-  pullup:       { metrics: [reps, weight] }
-  row:          { metrics: [reps] }
-  biceps_curl:  { metrics: [reps, weight] }
+  pullup:       { metrics: [reps], track_rest: true }
 
   # --- push ---
-  pike_pushup:       { metrics: [reps] }
-  pushup:            { metrics: [reps] }
-  triceps_extension: { metrics: [reps, weight] }
+  pushup:            { metrics: [reps], track_rest: true }
 
   # --- lower ---
   backsquat:      { metrics: [reps, weight] }
-  deadlift:       { metrics: [reps, weight] }
   jefferson_curl: { metrics: [reps, weight] }
-  goodmorning:    { metrics: [reps, weight] }
 
   # --- handstand ---
   chest2wall:   { metrics: [time] }
@@ -39,12 +33,12 @@ exercises:
   # towel_roll:     { metrics: [reps, weight] }
 
   # --- cardio ---
-  run:          { metrics: [time, distance] }
+  run:          { metrics: [time_min, distance] }
 
 workouts:
-  pull:      [pullup, row, biceps_curl]
-  push:      [pike_pushup, pushup, triceps_extension]
-  lower:     [backsquat, jefferson_curl, deadlift]
+  pull:      [pullup]
+  push:      [pushup]
+  lower:     [backsquat, jefferson_curl]
   handstand: [chest2wall]
   pancake:   [straddle_jefferson_curl]
   run:       [run]
