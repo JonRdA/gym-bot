@@ -61,7 +61,7 @@ class ReportingService:
 
         month_name = t0.strftime("%B %Y")
         header = f"Activity for {month_name}\n"
-        calendar_str = f"`{month_calendar[0]}\n{month_calendar[1]}\n"
+        calendar_str = f"```\n{month_calendar[0]}\n{month_calendar[1]}\n"
 
         for line in month_calendar[2:]:
             if not line.strip():
@@ -74,7 +74,7 @@ class ReportingService:
                 new_line = re.sub(pattern, marker, new_line)
             calendar_str += new_line + "\n"
 
-        calendar_str += "`"
+        calendar_str += "```"
         return header + calendar_str
 
     async def generate_duration_heatmap(

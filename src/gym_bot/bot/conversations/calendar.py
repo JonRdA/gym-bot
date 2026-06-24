@@ -41,9 +41,9 @@ async def calendar_command(update: Update, context: CallbackContext):
     text = "\n\n".join(calendars) if calendars else "No activity found."
     await update.message.reply_text(text, parse_mode="MarkdownV2")
 
-    heatmap = await services.reporting.generate_duration_heatmap(user_id, months, workout_filter)
-    if heatmap:
-        await update.message.reply_photo(heatmap)
+    # heatmap = await services.reporting.generate_duration_heatmap(user_id, months, workout_filter)
+    # if heatmap:
+    #     await update.message.reply_photo(heatmap)
 
 
 def build_calendar_handler() -> CommandHandler:
