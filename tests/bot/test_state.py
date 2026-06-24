@@ -4,12 +4,9 @@ from gym_bot.bot.state import (
     AddTrainingState,
     ReportState,
     clear_add_state,
-    clear_calendar_state,
     clear_report_state,
     get_add_state,
-    get_calendar_months,
     get_report_state,
-    set_calendar_months,
 )
 
 
@@ -62,22 +59,3 @@ def test_clear_report_state_drops_instance():
     assert get_report_state(ctx) is not original
 
 
-def test_calendar_months_defaults_to_one():
-    assert get_calendar_months(_ctx()) == 1
-
-
-def test_set_and_get_calendar_months_round_trip():
-    ctx = _ctx()
-
-    set_calendar_months(ctx, 3)
-
-    assert get_calendar_months(ctx) == 3
-
-
-def test_clear_calendar_state_resets_to_default():
-    ctx = _ctx()
-    set_calendar_months(ctx, 6)
-
-    clear_calendar_state(ctx)
-
-    assert get_calendar_months(ctx) == 1
