@@ -11,17 +11,23 @@
 exercises:
   # --- pull ---
   # pullup:       { metrics: [reps, weight], track_rest: true }
-  pullup:       { metrics: [reps], track_rest: true }
+  pullup: { metrics: [reps], track_rest: true }
+  db_biceps_curl: { metrics: [reps, weight] }
 
   # --- push ---
-  pushup:            { metrics: [reps], track_rest: true }
+  dip: { metrics: [reps], track_rest: true }
+  ring_pushup: { metrics: [reps] }
+  db_military_press: { metrics: [reps, weight] }
 
   # --- lower ---
-  backsquat:      { metrics: [reps, weight] }
+  backsquat: { metrics: [reps, weight], track_rest: true}
+  deadlift: { metrics: [reps, weight] }
   jefferson_curl: { metrics: [reps, weight] }
 
   # --- handstand ---
-  chest2wall:   { metrics: [time] }
+  chest2wall: { metrics: [time] }
+  crowpose: { metrics: [time] }
+  headstance: { metrics: [time] }
 
   # --- pancake ---
   straddle_jefferson_curl: { metrics: [reps, weight] }
@@ -36,10 +42,10 @@ exercises:
   run:          { metrics: [time_min, distance] }
 
 workouts:
-  pull:      [pullup]
-  push:      [pushup]
-  lower:     [backsquat, jefferson_curl]
-  handstand: [chest2wall]
+  pull:      [pullup, db_biceps_curl]
+  push:      [ring_pushup, db_military_press]
+  lower:     [backsquat, deadlift, jefferson_curl]
+  handstand: [chest2wall, crowpose, headstance]
   pancake:   [straddle_jefferson_curl]
   run:       [run]
   # home:      [rice_bucket, squat2sissy, heel_elevation, towel_roll, pushup]
