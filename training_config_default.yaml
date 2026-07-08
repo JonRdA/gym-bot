@@ -9,15 +9,14 @@
 # (seconds between sets). Remove/comment the flag to stop tracking.
 
 exercises:
-  # --- pull ---
+  # --- upper ---
   # pullup:       { metrics: [reps, weight], track_rest: true }
   pullup: { metrics: [reps], track_rest: true }
-  db_biceps_curl: { metrics: [reps, weight] }
+  biceps_curl_db: { metrics: [reps, weight] }
 
-  # --- push ---
   dip: { metrics: [reps], track_rest: true }
   ring_pushup: { metrics: [reps] }
-  db_military_press: { metrics: [reps, weight] }
+  military_press_db: { metrics: [reps, weight] }
 
   # --- lower ---
   backsquat: { metrics: [reps, weight], track_rest: true}
@@ -34,18 +33,16 @@ exercises:
 
   # --- home ---
   # rice_bucket:    { metrics: [time] }
-  # squat2sissy:    { metrics: [reps, feet2floor] }
-  # heel_elevation: { metrics: [reps, weight] }
-  # towel_roll:     { metrics: [reps, weight] }
+  squat2sissy:    { metrics: [reps, feet2floor] }
+  heel_elevation: { metrics: [reps] }
 
   # --- cardio ---
   run:          { metrics: [time_min, distance] }
 
 workouts:
-  pull:      [pullup, db_biceps_curl]
-  push:      [ring_pushup, db_military_press]
+  upper:      [pullup, biceps_curl_db, dip, ring_pushup, military_press_db]
   lower:     [backsquat, deadlift, jefferson_curl]
   handstand: [chest2wall, crowpose, headstance]
   pancake:   [straddle_jefferson_curl]
+  home:      [squat2sissy, heel_elevation]
   run:       [run]
-  # home:      [rice_bucket, squat2sissy, heel_elevation, towel_roll, pushup]
