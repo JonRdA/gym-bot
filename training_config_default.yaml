@@ -20,7 +20,7 @@ exercises:
 
   # --- lower ---
   backsquat: { metrics: [reps, weight], track_rest: true}
-  deadlift: { metrics: [reps, weight] }
+  deadlift: { metrics: [reps, weight], track_rest: true}
   jefferson_curl: { metrics: [reps, weight] }
 
   # --- handstand ---
@@ -40,7 +40,7 @@ exercises:
   run:          { metrics: [time_min, distance] }
 
 workouts:
-  upper:      [pullup, biceps_curl_db, dip, ring_pushup, military_press_db]
+  upper:      [pullup, dip, ring_pushup, biceps_curl_db, military_press_db]
   lower:     [backsquat, deadlift, jefferson_curl]
   handstand: [chest2wall, crowpose, headstance]
   pancake:   [straddle_jefferson_curl]
