@@ -35,6 +35,8 @@ exercises:
   # rice_bucket:    { metrics: [time] }
   squat2sissy:    { metrics: [reps, feet2floor] }
   heel_elevation: { metrics: [reps] }
+  wrist_flexion: { metrics: [reps, weight] }
+  wrist_extension: { metrics: [reps, weight] }
 
   # --- cardio ---
   run:          { metrics: [time_min, distance] }
@@ -44,5 +46,5 @@ workouts:
   lower:     [backsquat, deadlift, jefferson_curl]
   handstand: [chest2wall, crowpose, headstance]
   pancake:   [straddle_jefferson_curl]
-  home:      [squat2sissy, heel_elevation]
+  home:      [squat2sissy, heel_elevation, wrist_flexion, wrist_extension]
   run:       [run]
