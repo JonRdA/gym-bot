@@ -18,6 +18,7 @@ exercises:
   dip: { metrics: [reps], track_rest: true }
   ring_pushup: { metrics: [reps] }
   military_press_db: { metrics: [reps, weight] }
+  bench_press: { metrics: [reps, weight] }
 
   # --- lower ---
   backsquat: { metrics: [reps, weight], track_rest: true}
@@ -43,7 +44,7 @@ exercises:
   run:          { metrics: [time_min, distance, elevation] }
 
 workouts:
-  upper:      [pullup, dip, ring_pushup, biceps_curl_db, military_press_db, lat_puldown]
+  upper:      [pullup, dip, ring_pushup, biceps_curl_db, military_press_db, lat_puldown, bench_press]
   lower:     [backsquat, deadlift, jefferson_curl]
   handstand: [chest2wall, crowpose, headstance]
   pancake:   [straddle_jefferson_curl]
