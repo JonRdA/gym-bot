@@ -12,6 +12,7 @@ exercises:
   # --- upper ---
   # pullup:       { metrics: [reps, weight], track_rest: true }
   pullup: { metrics: [reps], track_rest: true }
+  lat_puldown: { metrics: [reps, weight] }
   biceps_curl_db: { metrics: [reps, weight] }
 
   dip: { metrics: [reps], track_rest: true }
@@ -39,10 +40,10 @@ exercises:
   wrist_extension: { metrics: [reps, weight] }
 
   # --- cardio ---
-  run:          { metrics: [time_min, distance] }
+  run:          { metrics: [time_min, distance, elevation] }
 
 workouts:
-  upper:      [pullup, dip, ring_pushup, biceps_curl_db, military_press_db]
+  upper:      [pullup, dip, ring_pushup, biceps_curl_db, military_press_db, lat_puldown]
   lower:     [backsquat, deadlift, jefferson_curl]
   handstand: [chest2wall, crowpose, headstance]
   pancake:   [straddle_jefferson_curl]

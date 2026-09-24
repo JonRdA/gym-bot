@@ -13,6 +13,7 @@ METRIC_REGISTRY: dict[str, MetricDefinition] = {
     "weight":      MetricDefinition("weight",      "kg",   float),
     "time":        MetricDefinition("time",        "s",    int),
     "time_min":    MetricDefinition("time",        "min",  int),
+    "elevation":   MetricDefinition("elevation",   "m",    int),
     "distance":    MetricDefinition("distance",    "m",    float),
     "thigh2floor": MetricDefinition("thigh2floor", "cm",   float),
     "knee2floor":  MetricDefinition("knee2floor",  "cm",   float),
