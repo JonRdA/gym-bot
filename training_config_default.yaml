@@ -31,7 +31,11 @@ exercises:
   headstance: { metrics: [time] }
 
   # --- pancake ---
+  knee2chest: { metrics: [reps] }
+
+  # --- pancake ---
   straddle_jefferson_curl: { metrics: [reps, weight] }
+  pancake: { metrics: [reps] }
 
   # --- home ---
   # rice_bucket:    { metrics: [time] }
@@ -44,9 +48,10 @@ exercises:
   run:          { metrics: [time_min, distance, elevation] }
 
 workouts:
-  upper:      [pullup, dip, ring_pushup, biceps_curl_db, military_press_db, lat_puldown, bench_press]
+  upper:     [pullup, dip, ring_pushup, biceps_curl_db, military_press_db, lat_puldown, bench_press]
   lower:     [backsquat, deadlift, jefferson_curl]
-  handstand: [chest2wall, crowpose, headstance]
-  pancake:   [straddle_jefferson_curl]
-  home:      [squat2sissy, heel_elevation, wrist_flexion, wrist_extension]
+  # handstand: [chest2wall, crowpose, headstance]
+  core:      [knee2chest]
+  pancake:   [pancake]
+  home:      [squat2sissy, heel_elevation]
   run:       [run]
