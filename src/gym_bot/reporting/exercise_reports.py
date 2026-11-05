@@ -1,11 +1,16 @@
 import io
 import logging
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Optional
+from datetime import datetime, timedelta
+from typing import Any, Callable, Optional
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.collections import PathCollection
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.figure import Figure
+from matplotlib.ticker import FuncFormatter, MultipleLocator
 
 from gym_bot.config.service import UserConfigService
 from gym_bot.db.repositories import TrainingRepository
@@ -36,7 +41,27 @@ REPORT_REGISTRY: tuple[ReportRule, ...] = (
         requires=frozenset({"time"}),
         reports=(("total_time", "Total Time"), ("max_time", "Max Time")),
     ),
+    ReportRule(
+        requires=frozenset({"time_min", "distance"}),
+        reports=(("run", "Run"),),
+    ),
 )
+
+
+@dataclass(frozen=True)
+class _Run:
+    date: datetime
+    minutes: float
+    km: float
+    climb_m: float
+
+    @property
+    def pace(self) -> float:
+        return self.minutes / self.km
+
+    @property
+    def climb_per_km(self) -> float:
+        return self.climb_m / self.km
 
 
 class ExerciseReportingService:
@@ -77,6 +102,7 @@ class ExerciseReportingService:
             "max_weight": self._report_max_weight,
             "total_time": self._report_total_time,
             "max_time": self._report_max_time,
+            "run": self._report_run,
         }
 
         generator = generators.get(report_type)
@@ -210,6 +236,26 @@ class ExerciseReportingService:
         )
         return {"text": text, "chart": _bar_chart(dates, values, title, "Max Hold (s)")}
 
+    def _report_run(self, sessions: list[dict], exercise_name: str) -> dict:
+        runs = _collect_runs(sessions)
+        if not runs:
+            return {"text": f"No run data found for {exercise_name}."}
+
+        best = min(runs, key=lambda r: r.pace)
+        longest = max(runs, key=lambda r: r.km)
+        last = runs[-1]
+
+        title = f"{_title(exercise_name)}: Pace"
+        text = (
+            f"*{title}*\n\n"
+            f"Runs: *{len(runs)}* ({sum(r.km for r in runs):,.1f} km total)\n"
+            f"Best pace: *{_format_pace(best.pace)} /km* ({best.km:.1f} km)\n"
+            f"Longest run: *{longest.km:.1f} km*\n"
+            f"Last run: *{last.km:.1f} km at {_format_pace(last.pace)} /km*, "
+            f"{last.climb_m:.0f} m climb"
+        )
+        return {"text": text, "chart": _pace_chart(runs, title)}
+
 
 # --- Helpers ---
 
@@ -217,10 +263,35 @@ def _title(exercise_name: str) -> str:
     return exercise_name.replace("_", " ").title()
 
 
+def _collect_runs(sessions: list[dict]) -> list[_Run]:
+    runs = []
+    for s in sessions:
+        minutes = sum(m.get("time_min", 0) for m in s["sets"])
+        km = sum(m.get("distance", 0) for m in s["sets"]) / 1000
+        climb = sum(m.get("elevation", 0) for m in s["sets"])
+        if minutes > 0 and km > 0:
+            runs.append(_Run(date=s["date"], minutes=minutes, km=km, climb_m=climb))
+    return runs
+
+
+def _format_pace(minutes_per_km: float) -> str:
+    seconds = round(minutes_per_km * 60)
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
 _BAR_COLOR = "#2f5d8a"
 _GRID_COLOR = "#e8e8e8"
 _AXIS_COLOR = "#888888"
 _TEXT_COLOR = "#2b2b2b"
+_LEGEND_MARKER_COLOR = "#b0b0b0"
+_CLIMB_CMAP = LinearSegmentedColormap.from_list(
+    "climb", ["#2e9e5b", "#c8b42a", "#e8743b", "#a3202a"]
+)
+_MIN_CLIMB_SCALE = 15  # m/km; keeps near-flat periods from looking hilly
+
+_MIN_DATE_PAD = timedelta(days=3)
+_MIN_BUBBLE_AREA = 40
+_MAX_BUBBLE_AREA = 420
 
 
 def _bar_chart(
@@ -231,32 +302,94 @@ def _bar_chart(
 ) -> Optional[io.BytesIO]:
     if not dates:
         return None
-    try:
-        fig, ax = plt.subplots(figsize=(5.5, 7.5), dpi=160)
 
+    def draw(fig: Figure, ax: Axes) -> None:
         ax.bar(dates, values, width=0.7, color=_BAR_COLOR, edgecolor="none", zorder=2)
 
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=6))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
+    return _render_chart(dates, title, ylabel, draw)
 
-        ax.set_title(title, fontsize=15, pad=16, color=_TEXT_COLOR, fontweight="semibold")
-        ax.set_ylabel(ylabel, fontsize=12, labelpad=10, color=_TEXT_COLOR)
 
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.spines["left"].set_color(_AXIS_COLOR)
-        ax.spines["bottom"].set_color(_AXIS_COLOR)
+def _pace_chart(runs: list[_Run], title: str) -> Optional[io.BytesIO]:
+    """Pace over time (faster is up); bubble area = distance, color = climb per km."""
+    dates = [r.date for r in runs]
+    paces = [r.pace for r in runs]
+    kms = [r.km for r in runs]
+    climbs = [r.climb_per_km for r in runs]
+    hilly = any(c > 0 for c in climbs)
 
-        ax.tick_params(axis="both", colors=_AXIS_COLOR, labelsize=11, length=0)
-        ax.yaxis.grid(True, linestyle="-", linewidth=0.7, color=_GRID_COLOR, zorder=1)
-        ax.set_axisbelow(True)
-        ax.margins(x=0.05)
+    def area(km: float) -> float:
+        return max(_MIN_BUBBLE_AREA, _MAX_BUBBLE_AREA * km / max(kms))
 
-        for label in ax.get_xticklabels():
-            label.set_rotation(35)
-            label.set_horizontalalignment("right")
+    def draw(fig: Figure, ax: Axes) -> None:
+        color = (
+            {
+                "c": climbs,
+                "cmap": _CLIMB_CMAP,
+                "vmin": 0,
+                "vmax": max(_MIN_CLIMB_SCALE, max(climbs)),
+            }
+            if hilly
+            else {"color": _BAR_COLOR}
+        )
+        points = ax.scatter(
+            dates, paces, s=[area(km) for km in kms],
+            edgecolors="white", linewidths=1.5, zorder=3, **color,
+        )
 
-        fig.tight_layout()
+        ax.invert_yaxis()
+        ax.yaxis.set_major_locator(_pace_locator(max(paces) - min(paces)))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: _format_pace(v)))
+        ax.margins(y=0.15)
+
+        _add_distance_legend(fig, ax, kms, area)
+        if hilly:
+            _add_climb_colorbar(fig, ax, points)
+
+    return _render_chart(dates, title, "Pace (min/km)", draw)
+
+
+def _add_distance_legend(
+    fig: Figure, ax: Axes, kms: list[float], area: Callable[[float], float]
+) -> None:
+    reference_kms = sorted({max(1, round(min(kms))), max(1, round(max(kms)))})
+    handles = [
+        ax.scatter([], [], s=area(km), color=_LEGEND_MARKER_COLOR, edgecolors="white", label=f"{km} km")
+        for km in reference_kms
+    ]
+    fig.legend(
+        handles=handles,
+        loc="outside lower center",
+        ncol=len(handles),
+        frameon=False,
+        fontsize=10,
+        labelcolor=_TEXT_COLOR,
+    )
+
+
+def _add_climb_colorbar(fig: Figure, ax: Axes, points: PathCollection) -> None:
+    cbar = fig.colorbar(points, ax=ax, location="bottom", shrink=0.7, aspect=30)
+    cbar.set_label("Climb (m/km)", fontsize=10, color=_TEXT_COLOR)
+    cbar.outline.set_visible(False)
+    cbar.ax.tick_params(colors=_AXIS_COLOR, labelsize=9, length=0)
+
+
+def _pace_locator(span_minutes: float) -> MultipleLocator:
+    for step_seconds in (5, 10, 15, 30, 60, 120):
+        if span_minutes * 60 / step_seconds <= 6:
+            return MultipleLocator(step_seconds / 60)
+    return MultipleLocator(5)
+
+
+def _render_chart(
+    dates: list[datetime],
+    title: str,
+    ylabel: str,
+    draw: Callable[[Figure, Axes], None],
+) -> Optional[io.BytesIO]:
+    fig, ax = plt.subplots(figsize=(5.5, 7.5), dpi=160, layout="constrained")
+    try:
+        draw(fig, ax)
+        _style_axes(ax, dates, title, ylabel)
 
         buf = io.BytesIO()
         fig.savefig(buf, format="png", bbox_inches="tight", facecolor="white")
@@ -267,3 +400,31 @@ def _bar_chart(
         return None
     finally:
         plt.close(fig)
+
+
+def _date_limits(dates: list[datetime]) -> tuple[datetime, datetime]:
+    first, last = min(dates), max(dates)
+    pad = max((last - first) * 0.05, _MIN_DATE_PAD)
+    return first - pad, last + pad
+
+
+def _style_axes(ax: Axes, dates: list[datetime], title: str, ylabel: str) -> None:
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=6))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
+
+    ax.set_title(title, fontsize=15, pad=16, color=_TEXT_COLOR, fontweight="semibold")
+    ax.set_ylabel(ylabel, fontsize=12, labelpad=10, color=_TEXT_COLOR)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color(_AXIS_COLOR)
+    ax.spines["bottom"].set_color(_AXIS_COLOR)
+
+    ax.tick_params(axis="both", colors=_AXIS_COLOR, labelsize=11, length=0)
+    ax.yaxis.grid(True, linestyle="-", linewidth=0.7, color=_GRID_COLOR, zorder=1)
+    ax.set_axisbelow(True)
+    ax.set_xlim(*_date_limits(dates))
+
+    for label in ax.get_xticklabels():
+        label.set_rotation(35)
+        label.set_horizontalalignment("right")

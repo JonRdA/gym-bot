@@ -8,7 +8,7 @@ import pytest
 matplotlib.use("Agg")
 
 from gym_bot.config.models import ExerciseConfig, UserConfig
-from gym_bot.reporting.exercise_reports import ExerciseReportingService
+from gym_bot.reporting.exercise_reports import ExerciseReportingService, _format_pace
 
 
 def _svc() -> ExerciseReportingService:
@@ -112,6 +112,58 @@ def test_max_time_picks_longest_hold_per_session():
     assert "All-time max: *50s*" in result["text"]
 
 
+def test_run_report_derives_pace_distance_and_climb():
+    sessions = _sessions(
+        [
+            [{"time_min": 30, "distance": 5000.0, "elevation": 50}],  # 6:00 /km
+            [{"time_min": 55, "distance": 10000.0, "elevation": 120}],  # 5:30 /km
+            [{"time_min": 25, "distance": 4000.0, "elevation": 20}],  # 6:15 /km
+        ]
+    )
+
+    result = _svc()._report_run(sessions, "run")
+
+    _assert_chart_and_text(result)
+    assert "Runs: *3* (19.0 km total)" in result["text"]
+    assert "Best pace: *5:30 /km* (10.0 km)" in result["text"]
+    assert "Longest run: *10.0 km*" in result["text"]
+    assert "Last run: *4.0 km at 6:15 /km*, 20 m climb" in result["text"]
+
+
+def test_run_report_sums_split_sets_into_one_run():
+    sessions = _sessions(
+        [[{"time_min": 12, "distance": 2000.0, "elevation": 10}, {"time_min": 18, "distance": 3000.0, "elevation": 15}]]
+    )
+
+    result = _svc()._report_run(sessions, "run")
+
+    _assert_chart_and_text(result)
+    assert "Runs: *1* (5.0 km total)" in result["text"]
+    assert "Best pace: *6:00 /km*" in result["text"]
+
+
+def test_run_report_renders_without_elevation():
+    sessions = _sessions([[{"time_min": 30, "distance": 5000.0}], [{"time_min": 28, "distance": 5000.0}]])
+
+    result = _svc()._report_run(sessions, "run")
+
+    _assert_chart_and_text(result)
+
+
+def test_run_report_skips_sessions_without_distance_or_time():
+    sessions = _sessions([[{"time_min": 30, "distance": 0.0}], [{"time_min": 0, "distance": 5000.0}]])
+
+    result = _svc()._report_run(sessions, "run")
+
+    assert "No run data" in result["text"]
+    assert "chart" not in result
+
+
+@pytest.mark.parametrize("pace, expected", [(6.0, "6:00"), (5.5, "5:30"), (4.999, "5:00"), (5 + 59.6 / 60, "6:00")])
+def test_format_pace(pace, expected):
+    assert _format_pace(pace) == expected
+
+
 @pytest.mark.parametrize(
     "exercise_config, expected",
     [
@@ -127,6 +179,10 @@ def test_max_time_picks_longest_hold_per_session():
         (
             ExerciseConfig(metrics=["time"]),
             {("total_time", "Total Time"), ("max_time", "Max Time")},
+        ),
+        (
+            ExerciseConfig(metrics=["time_min", "distance", "elevation"]),
+            {("run", "Run")},
         ),
     ],
 )
