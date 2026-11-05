@@ -13,9 +13,6 @@ logger = logging.getLogger(__name__)
 
 # Maps required metric combinations to available report types
 REPORT_REGISTRY: dict[tuple[str, ...], list[tuple[str, str]]] = {
-    ("reps",): [
-        ("total_reps", "Total Reps"),
-    ],
     ("reps", "weight"): [
         ("total_volume", "Total Volume"),
         ("max_weight", "Max Weight"),
@@ -25,8 +22,6 @@ REPORT_REGISTRY: dict[tuple[str, ...], list[tuple[str, str]]] = {
         ("max_time", "Max Time"),
     ],
 }
-
-REST_REPORT = ("rest_trend", "Rest")
 
 
 class ExerciseReportingService:
@@ -47,8 +42,6 @@ class ExerciseReportingService:
         for required, report_list in REPORT_REGISTRY.items():
             if metrics.issuperset(required):
                 reports.extend(report_list)
-        if exercise_config.track_rest:
-            reports.append(REST_REPORT)
         return sorted(set(reports))
 
     async def generate_report(
@@ -69,7 +62,6 @@ class ExerciseReportingService:
             "max_weight": self._report_max_weight,
             "total_time": self._report_total_time,
             "max_time": self._report_max_time,
-            "rest_trend": self._report_rest_trend,
         }
 
         generator = generators.get(report_type)
@@ -183,25 +175,6 @@ class ExerciseReportingService:
             f"Last session: *{values[-1]}s*"
         )
         return {"text": text, "chart": _bar_chart(dates, values, title, "Total Time (s)")}
-
-    def _report_rest_trend(self, sessions: list[dict], exercise_name: str) -> dict:
-        dates, values = [], []
-        for s in sessions:
-            if s.get("rest") is not None:
-                dates.append(s["date"])
-                values.append(s["rest"])
-
-        if not dates:
-            return {"text": f"No rest data found for {exercise_name}."}
-
-        title = f"{_title(exercise_name)}: Rest (s)"
-        text = (
-            f"*{title}*\n\n"
-            f"Overall avg: *{sum(values) / len(values):,.0f}s*\n"
-            f"Shortest: *{min(values)}s*\n"
-            f"Last session: *{values[-1]}s*"
-        )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Rest (s)")}
 
     def _report_max_time(self, sessions: list[dict], exercise_name: str) -> dict:
         dates, values = [], []

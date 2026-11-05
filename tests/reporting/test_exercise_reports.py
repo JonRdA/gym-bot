@@ -112,41 +112,13 @@ def test_max_time_picks_longest_hold_per_session():
     assert "All-time max: *50s*" in result["text"]
 
 
-def test_rest_trend_computes_average_min_and_last():
-    base = datetime(2026, 4, 1)
-    sessions = [
-        {"date": base, "sets": [{"reps": 5}], "rest": 180},
-        {"date": base + timedelta(days=2), "sets": [{"reps": 5}], "rest": 120},
-        {"date": base + timedelta(days=4), "sets": [{"reps": 5}], "rest": 150},
-    ]
-
-    result = _svc()._report_rest_trend(sessions, "pullup")
-
-    _assert_chart_and_text(result)
-    assert "Overall avg: *150s*" in result["text"]
-    assert "Shortest: *120s*" in result["text"]
-    assert "Last session: *150s*" in result["text"]
-
-
-def test_rest_trend_handles_missing_rest_values():
-    sessions = _sessions([[{"reps": 5}], [{"reps": 5}]])
-
-    result = _svc()._report_rest_trend(sessions, "pullup")
-
-    assert "No rest data" in result["text"]
-
-
 @pytest.mark.parametrize(
     "exercise_config, expected",
     [
-        (
-            ExerciseConfig(metrics=["reps"]),
-            {("total_reps", "Total Reps")},
-        ),
+        (ExerciseConfig(metrics=["reps"]), set()),
         (
             ExerciseConfig(metrics=["reps", "weight"]),
             {
-                ("total_reps", "Total Reps"),
                 ("total_volume", "Total Volume"),
                 ("max_weight", "Max Weight"),
             },
@@ -172,10 +144,10 @@ async def test_get_available_reports_from_metric_combinations(exercise_config, e
     assert set(reports) == expected
 
 
-async def test_get_available_reports_adds_rest_when_track_rest_enabled():
+async def test_get_available_reports_ignores_track_rest():
     config = UserConfig(
         user_id=1,
-        exercises={"pullup": ExerciseConfig(metrics=["reps"], track_rest=True)},
+        exercises={"pullup": ExerciseConfig(metrics=["reps", "weight"], track_rest=True)},
         workouts={"pull": ["pullup"]},
     )
     config_service = AsyncMock()
@@ -184,7 +156,7 @@ async def test_get_available_reports_adds_rest_when_track_rest_enabled():
 
     reports = await svc.get_available_reports(user_id=1, exercise_name="pullup")
 
-    assert ("rest_trend", "Rest") in reports
+    assert set(reports) == {("total_volume", "Total Volume"), ("max_weight", "Max Weight")}
 
 
 async def test_get_available_reports_returns_empty_for_unknown_exercise():
