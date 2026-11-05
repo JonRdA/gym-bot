@@ -7,8 +7,9 @@ from typing import Any, Callable, Optional
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-from matplotlib.collections import PathCollection
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.patches import Patch
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter, MultipleLocator
 
@@ -46,6 +47,13 @@ REPORT_REGISTRY: tuple[ReportRule, ...] = (
         reports=(("run", "Run"),),
     ),
 )
+
+
+@dataclass(frozen=True)
+class _SessionSeries:
+    dates: list[datetime]
+    values: list[float]
+    rests: list[Optional[int]]
 
 
 @dataclass(frozen=True)
@@ -142,99 +150,75 @@ class ExerciseReportingService:
     # --- Report generators ---
 
     def _report_total_reps(self, sessions: list[dict], exercise_name: str) -> dict:
-        dates, values = [], []
-        for s in sessions:
-            total = sum(m.get("reps", 0) for m in s["sets"])
-            if total > 0:
-                dates.append(s["date"])
-                values.append(total)
-
-        if not dates:
+        series = _per_session(sessions, lambda sets: sum(m.get("reps", 0) for m in sets))
+        if not series.values:
             return {"text": f"No reps data found for {exercise_name}."}
 
         title = f"{_title(exercise_name)}: Reps per Session"
         text = (
             f"*{title}*\n\n"
-            f"Max reps in a day: *{max(values):,.0f}*\n"
-            f"Last session: *{values[-1]:,.0f}*"
+            f"Max reps in a day: *{max(series.values):,.0f}*\n"
+            f"Last session: *{series.values[-1]:,.0f}*"
         )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Total Reps")}
+        return {"text": text, "chart": _bar_chart(series, title, "Total Reps")}
 
     def _report_total_volume(self, sessions: list[dict], exercise_name: str) -> dict:
-        dates, values = [], []
-        for s in sessions:
-            vol = sum(m.get("reps", 0) * m.get("weight", 0) for m in s["sets"])
-            if vol > 0:
-                dates.append(s["date"])
-                values.append(vol)
-
-        if not dates:
+        series = _per_session(
+            sessions, lambda sets: sum(m.get("reps", 0) * m.get("weight", 0) for m in sets)
+        )
+        if not series.values:
             return {"text": f"No volume data found for {exercise_name}."}
 
         title = f"{_title(exercise_name)}: Volume (reps x kg)"
         text = (
             f"*{title}*\n\n"
-            f"*{len(dates)} sessions*\n"
-            f"Max volume in a day: *{max(values):,.0f} reps x kg*"
+            f"*{len(series.values)} sessions*\n"
+            f"Max volume in a day: *{max(series.values):,.0f} reps x kg*"
         )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Volume (reps x kg)")}
+        return {"text": text, "chart": _bar_chart(series, title, "Volume (reps x kg)")}
 
     def _report_max_weight(self, sessions: list[dict], exercise_name: str) -> dict:
-        dates, values = [], []
-        for s in sessions:
-            weights = [m.get("weight", 0) for m in s["sets"] if m.get("weight", 0) > 0]
-            if weights:
-                dates.append(s["date"])
-                values.append(max(weights))
-
-        if not dates:
+        series = _per_session(
+            sessions, lambda sets: max((m.get("weight", 0) for m in sets), default=0)
+        )
+        if not series.values:
             return {"text": f"No weight data found for {exercise_name}."}
 
         title = f"{_title(exercise_name)}: Max Weight (kg)"
         text = (
             f"*{title}*\n\n"
-            f"All-time max: *{max(values):,.1f} kg*\n"
-            f"Last session: *{values[-1]:,.1f} kg*"
+            f"All-time max: *{max(series.values):,.1f} kg*\n"
+            f"Last session: *{series.values[-1]:,.1f} kg*"
         )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Max Weight (kg)")}
+        return {"text": text, "chart": _bar_chart(series, title, "Max Weight (kg)")}
 
     def _report_total_time(self, sessions: list[dict], exercise_name: str) -> dict:
-        dates, values = [], []
-        for s in sessions:
-            total = sum(m.get("time", 0) for m in s["sets"])
-            if total > 0:
-                dates.append(s["date"])
-                values.append(total)
-
-        if not dates:
+        series = _per_session(sessions, lambda sets: sum(m.get("time", 0) for m in sets))
+        if not series.values:
             return {"text": f"No time data found for {exercise_name}."}
 
         title = f"{_title(exercise_name)}: Total Time (s)"
         text = (
             f"*{title}*\n\n"
-            f"Max total in a day: *{max(values)}s*\n"
-            f"Last session: *{values[-1]}s*"
+            f"Max total in a day: *{max(series.values)}s*\n"
+            f"Last session: *{series.values[-1]}s*"
         )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Total Time (s)")}
+        return {"text": text, "chart": _bar_chart(series, title, "Total Time (s)")}
 
     def _report_max_time(self, sessions: list[dict], exercise_name: str) -> dict:
-        dates, values = [], []
-        for s in sessions:
-            times = [m.get("time", 0) for m in s["sets"] if m.get("time", 0) > 0]
-            if times:
-                dates.append(s["date"])
-                values.append(max(times))
-
-        if not dates:
+        series = _per_session(
+            sessions, lambda sets: max((m.get("time", 0) for m in sets), default=0)
+        )
+        if not series.values:
             return {"text": f"No time data found for {exercise_name}."}
 
         title = f"{_title(exercise_name)}: Max Hold (s)"
         text = (
             f"*{title}*\n\n"
-            f"All-time max: *{max(values)}s*\n"
-            f"Last session: *{values[-1]}s*"
+            f"All-time max: *{max(series.values)}s*\n"
+            f"Last session: *{series.values[-1]}s*"
         )
-        return {"text": text, "chart": _bar_chart(dates, values, title, "Max Hold (s)")}
+        return {"text": text, "chart": _bar_chart(series, title, "Max Hold (s)")}
 
     def _report_run(self, sessions: list[dict], exercise_name: str) -> dict:
         runs = _collect_runs(sessions)
@@ -263,6 +247,19 @@ def _title(exercise_name: str) -> str:
     return exercise_name.replace("_", " ").title()
 
 
+def _per_session(
+    sessions: list[dict], value: Callable[[list[dict]], float]
+) -> _SessionSeries:
+    dates, values, rests = [], [], []
+    for s in sessions:
+        v = value(s["sets"])
+        if v > 0:
+            dates.append(s["date"])
+            values.append(v)
+            rests.append(s.get("rest"))
+    return _SessionSeries(dates=dates, values=values, rests=rests)
+
+
 def _collect_runs(sessions: list[dict]) -> list[_Run]:
     runs = []
     for s in sessions:
@@ -284,29 +281,62 @@ _GRID_COLOR = "#e8e8e8"
 _AXIS_COLOR = "#888888"
 _TEXT_COLOR = "#2b2b2b"
 _LEGEND_MARKER_COLOR = "#b0b0b0"
-_CLIMB_CMAP = LinearSegmentedColormap.from_list(
-    "climb", ["#2e9e5b", "#c8b42a", "#e8743b", "#a3202a"]
-)
+_NO_REST_COLOR = "#c8c8c8"
+_EFFORT_CMAP = LinearSegmentedColormap.from_list(
+    "effort", ["#2e9e5b", "#c8b42a", "#e8743b", "#a3202a"]
+)  # easy (green) -> hard (red)
 _MIN_CLIMB_SCALE = 15  # m/km; keeps near-flat periods from looking hilly
+_REST_NORM = Normalize(vmin=60, vmax=300)  # seconds; outside values clamp to the ends
+_REST_TICKS = [60, 120, 180, 240, 300]
 
 _MIN_DATE_PAD = timedelta(days=3)
+_MIN_BAR_WIDTH = 0.7
 _MIN_BUBBLE_AREA = 40
 _MAX_BUBBLE_AREA = 420
 
 
-def _bar_chart(
-    dates: list[datetime],
-    values: list[float],
-    title: str,
-    ylabel: str,
-) -> Optional[io.BytesIO]:
-    if not dates:
+def _bar_chart(series: _SessionSeries, title: str, ylabel: str) -> Optional[io.BytesIO]:
+    """Bars per session; colored by rest (short = red, long = green) when rest was logged."""
+    if not series.dates:
         return None
+    has_rest = any(r is not None for r in series.rests)
 
     def draw(fig: Figure, ax: Axes) -> None:
-        ax.bar(dates, values, width=0.7, color=_BAR_COLOR, edgecolor="none", zorder=2)
+        colors = [_rest_color(r) for r in series.rests] if has_rest else _BAR_COLOR
+        ax.bar(
+            series.dates, series.values, width=_bar_width(series.dates),
+            color=colors, edgecolor="none", zorder=2,
+        )
+        if has_rest:
+            _add_rest_key(fig, ax, show_missing=None in series.rests)
 
-    return _render_chart(dates, title, ylabel, draw)
+    return _render_chart(series.dates, title, ylabel, draw)
+
+
+def _bar_width(dates: list[datetime]) -> float:
+    days = sorted({d.date() for d in dates})
+    gaps = [(b - a).days for a, b in zip(days, days[1:])]
+    return max(_MIN_BAR_WIDTH, 0.8 * min(gaps, default=0))
+
+
+def _rest_color(rest: Optional[int]):
+    if rest is None:
+        return _NO_REST_COLOR
+    return _EFFORT_CMAP.reversed()(_REST_NORM(rest))
+
+
+def _add_rest_key(fig: Figure, ax: Axes, show_missing: bool) -> None:
+    mappable = ScalarMappable(norm=_REST_NORM, cmap=_EFFORT_CMAP.reversed())
+    cbar = _add_colorbar(fig, ax, mappable, "Rest (min)", extend="both", ticks=_REST_TICKS)
+    cbar.ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 60:g}"))
+    if show_missing:
+        fig.legend(
+            handles=[Patch(color=_NO_REST_COLOR, label="No rest logged")],
+            loc="outside lower center",
+            frameon=False,
+            fontsize=10,
+            labelcolor=_TEXT_COLOR,
+        )
 
 
 def _pace_chart(runs: list[_Run], title: str) -> Optional[io.BytesIO]:
@@ -324,7 +354,7 @@ def _pace_chart(runs: list[_Run], title: str) -> Optional[io.BytesIO]:
         color = (
             {
                 "c": climbs,
-                "cmap": _CLIMB_CMAP,
+                "cmap": _EFFORT_CMAP,
                 "vmin": 0,
                 "vmax": max(_MIN_CLIMB_SCALE, max(climbs)),
             }
@@ -343,7 +373,7 @@ def _pace_chart(runs: list[_Run], title: str) -> Optional[io.BytesIO]:
 
         _add_distance_legend(fig, ax, kms, area)
         if hilly:
-            _add_climb_colorbar(fig, ax, points)
+            _add_colorbar(fig, ax, points, "Climb (m/km)")
 
     return _render_chart(dates, title, "Pace (min/km)", draw)
 
@@ -366,11 +396,12 @@ def _add_distance_legend(
     )
 
 
-def _add_climb_colorbar(fig: Figure, ax: Axes, points: PathCollection) -> None:
-    cbar = fig.colorbar(points, ax=ax, location="bottom", shrink=0.7, aspect=30)
-    cbar.set_label("Climb (m/km)", fontsize=10, color=_TEXT_COLOR)
+def _add_colorbar(fig: Figure, ax: Axes, mappable: ScalarMappable, label: str, **kwargs: Any):
+    cbar = fig.colorbar(mappable, ax=ax, location="bottom", shrink=0.7, aspect=30, **kwargs)
+    cbar.set_label(label, fontsize=10, color=_TEXT_COLOR)
     cbar.outline.set_visible(False)
     cbar.ax.tick_params(colors=_AXIS_COLOR, labelsize=9, length=0)
+    return cbar
 
 
 def _pace_locator(span_minutes: float) -> MultipleLocator:

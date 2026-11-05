@@ -8,7 +8,14 @@ import pytest
 matplotlib.use("Agg")
 
 from gym_bot.config.models import ExerciseConfig, UserConfig
-from gym_bot.reporting.exercise_reports import ExerciseReportingService, _format_pace
+from gym_bot.reporting.exercise_reports import (
+    _NO_REST_COLOR,
+    ExerciseReportingService,
+    _bar_width,
+    _format_pace,
+    _per_session,
+    _rest_color,
+)
 
 
 def _svc() -> ExerciseReportingService:
@@ -110,6 +117,52 @@ def test_max_time_picks_longest_hold_per_session():
 
     _assert_chart_and_text(result)
     assert "All-time max: *50s*" in result["text"]
+
+
+def test_per_session_keeps_rest_aligned_with_kept_sessions():
+    base = datetime(2026, 4, 1)
+    sessions = [
+        {"date": base, "sets": [{"reps": 5}], "rest": 120},
+        {"date": base + timedelta(days=1), "sets": [{"reps": 0}], "rest": 60},
+        {"date": base + timedelta(days=2), "sets": [{"reps": 8}], "rest": None},
+    ]
+
+    series = _per_session(sessions, lambda sets: sum(m["reps"] for m in sets))
+
+    assert series.values == [5, 8]
+    assert series.rests == [120, None]
+
+
+def test_rest_color_clamps_to_scale_ends_and_greys_missing():
+    assert _rest_color(None) == _NO_REST_COLOR
+    assert _rest_color(30) == _rest_color(60)
+    assert _rest_color(600) == _rest_color(300)
+    assert _rest_color(60) != _rest_color(300)
+
+
+def test_bar_width_follows_tightest_session_gap():
+    base = datetime(2026, 4, 1, 18)
+    assert _bar_width([base, base + timedelta(days=5), base + timedelta(days=15)]) == 4.0
+    assert _bar_width([base]) == 0.7
+    assert _bar_width([base, base + timedelta(hours=2)]) == 0.7
+
+
+@pytest.mark.parametrize("rest", [None, 120])
+def test_bar_reports_render_with_and_without_rest(rest):
+    sessions = _sessions([[{"reps": 5, "weight": 100}], [{"reps": 5, "weight": 110}]], rest=rest)
+
+    result = _svc()._report_total_volume(sessions, "backsquat")
+
+    _assert_chart_and_text(result)
+
+
+def test_bar_report_renders_mixed_rest_and_missing():
+    sessions = _sessions([[{"reps": 10}], [{"reps": 12}], [{"reps": 11}]])
+    sessions[1]["rest"] = 90
+
+    result = _svc()._report_total_reps(sessions, "pullup")
+
+    _assert_chart_and_text(result)
 
 
 def test_run_report_derives_pace_distance_and_climb():
