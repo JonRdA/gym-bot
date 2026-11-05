@@ -11,7 +11,10 @@ from gym_bot.config.models import ExerciseConfig, UserConfig
 from gym_bot.reporting.exercise_reports import (
     _NO_REST_COLOR,
     ExerciseReportingService,
+    _MAX_BUBBLE_AREA,
+    _MIN_BUBBLE_AREA,
     _bar_width,
+    _bubble_area,
     _format_pace,
     _per_session,
     _rest_color,
@@ -210,6 +213,13 @@ def test_run_report_skips_sessions_without_distance_or_time():
 
     assert "No run data" in result["text"]
     assert "chart" not in result
+
+
+def test_bubble_area_stretches_period_range():
+    assert _bubble_area(4.0, 4.0, 6.0) == _MIN_BUBBLE_AREA
+    assert _bubble_area(6.0, 4.0, 6.0) == _MAX_BUBBLE_AREA
+    assert _bubble_area(5.0, 4.0, 6.0) == (_MIN_BUBBLE_AREA + _MAX_BUBBLE_AREA) / 2
+    assert _bubble_area(5.0, 5.0, 5.0) == (_MIN_BUBBLE_AREA + _MAX_BUBBLE_AREA) / 2
 
 
 @pytest.mark.parametrize("pace, expected", [(6.0, "6:00"), (5.5, "5:30"), (4.999, "5:00"), (5 + 59.6 / 60, "6:00")])

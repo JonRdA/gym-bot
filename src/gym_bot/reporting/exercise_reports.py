@@ -291,8 +291,8 @@ _REST_TICKS = [60, 120, 180, 240, 300]
 
 _MIN_DATE_PAD = timedelta(days=3)
 _MIN_BAR_WIDTH = 0.7
-_MIN_BUBBLE_AREA = 40
-_MAX_BUBBLE_AREA = 420
+_MIN_BUBBLE_AREA = 60
+_MAX_BUBBLE_AREA = 320
 
 
 def _bar_chart(series: _SessionSeries, title: str, ylabel: str) -> Optional[io.BytesIO]:
@@ -348,7 +348,7 @@ def _pace_chart(runs: list[_Run], title: str) -> Optional[io.BytesIO]:
     hilly = any(c > 0 for c in climbs)
 
     def area(km: float) -> float:
-        return max(_MIN_BUBBLE_AREA, _MAX_BUBBLE_AREA * km / max(kms))
+        return _bubble_area(km, min(kms), max(kms))
 
     def draw(fig: Figure, ax: Axes) -> None:
         color = (
@@ -378,12 +378,20 @@ def _pace_chart(runs: list[_Run], title: str) -> Optional[io.BytesIO]:
     return _render_chart(dates, title, "Pace (min/km)", draw)
 
 
+def _bubble_area(km: float, shortest: float, longest: float) -> float:
+    """Stretch the period's distance range over the full bubble range so close distances stay distinguishable."""
+    if longest == shortest:
+        return (_MIN_BUBBLE_AREA + _MAX_BUBBLE_AREA) / 2
+    fraction = (km - shortest) / (longest - shortest)
+    return _MIN_BUBBLE_AREA + fraction * (_MAX_BUBBLE_AREA - _MIN_BUBBLE_AREA)
+
+
 def _add_distance_legend(
     fig: Figure, ax: Axes, kms: list[float], area: Callable[[float], float]
 ) -> None:
-    reference_kms = sorted({max(1, round(min(kms))), max(1, round(max(kms)))})
+    reference_kms = sorted({round(min(kms), 1), round(max(kms), 1)})
     handles = [
-        ax.scatter([], [], s=area(km), color=_LEGEND_MARKER_COLOR, edgecolors="white", label=f"{km} km")
+        ax.scatter([], [], s=area(km), color=_LEGEND_MARKER_COLOR, edgecolors="white", label=f"{km:g} km")
         for km in reference_kms
     ]
     fig.legend(
