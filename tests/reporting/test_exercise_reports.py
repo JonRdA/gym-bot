@@ -115,7 +115,8 @@ def test_max_time_picks_longest_hold_per_session():
 @pytest.mark.parametrize(
     "exercise_config, expected",
     [
-        (ExerciseConfig(metrics=["reps"]), set()),
+        (ExerciseConfig(metrics=["reps"]), {("total_reps", "Total Reps")}),
+        (ExerciseConfig(metrics=["reps", "feet2floor"]), {("total_reps", "Total Reps")}),
         (
             ExerciseConfig(metrics=["reps", "weight"]),
             {

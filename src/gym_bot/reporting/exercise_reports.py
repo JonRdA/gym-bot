@@ -1,5 +1,6 @@
 import io
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
@@ -11,17 +12,31 @@ from gym_bot.db.repositories import TrainingRepository
 
 logger = logging.getLogger(__name__)
 
-# Maps required metric combinations to available report types
-REPORT_REGISTRY: dict[tuple[str, ...], list[tuple[str, str]]] = {
-    ("reps", "weight"): [
-        ("total_volume", "Total Volume"),
-        ("max_weight", "Max Weight"),
-    ],
-    ("time",): [
-        ("total_time", "Total Time"),
-        ("max_time", "Max Time"),
-    ],
-}
+@dataclass(frozen=True)
+class ReportRule:
+    requires: frozenset[str]
+    reports: tuple[tuple[str, str], ...]
+    excludes: frozenset[str] = frozenset()
+
+    def applies_to(self, metrics: set[str]) -> bool:
+        return self.requires <= metrics and not self.excludes & metrics
+
+
+REPORT_REGISTRY: tuple[ReportRule, ...] = (
+    ReportRule(
+        requires=frozenset({"reps"}),
+        excludes=frozenset({"weight"}),
+        reports=(("total_reps", "Total Reps"),),
+    ),
+    ReportRule(
+        requires=frozenset({"reps", "weight"}),
+        reports=(("total_volume", "Total Volume"), ("max_weight", "Max Weight")),
+    ),
+    ReportRule(
+        requires=frozenset({"time"}),
+        reports=(("total_time", "Total Time"), ("max_time", "Max Time")),
+    ),
+)
 
 
 class ExerciseReportingService:
@@ -39,9 +54,9 @@ class ExerciseReportingService:
 
         metrics = set(exercise_config.metrics)
         reports = []
-        for required, report_list in REPORT_REGISTRY.items():
-            if metrics.issuperset(required):
-                reports.extend(report_list)
+        for rule in REPORT_REGISTRY:
+            if rule.applies_to(metrics):
+                reports.extend(rule.reports)
         return sorted(set(reports))
 
     async def generate_report(
